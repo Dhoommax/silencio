@@ -72,8 +72,6 @@ const getRecognition = () =>
 const languages = [
   { label: "English (US)", code: "en-US" },
   { label: "Swahili (Tanzania)", code: "sw-TZ" },
-  { label: "French", code: "fr-FR" },
-  { label: "Spanish", code: "es-ES" },
   { label: "Portuguese", code: "pt-PT" },
 ];
 const defaultSettings: UserSettings = {
@@ -102,15 +100,6 @@ function App() {
       .getRecordings()
       .then(setRecordings)
       .catch(() => undefined);
-              {page === "tts" && (
-                <TTS
-                  onEditWithAI={(value) => {
-                    setAiDraft(value);
-                    setPage("ai");
-                  }}
-                />
-              )} {" "}
-              {page === "ai" && <AITools initialText={aiDraft} />} {" "}
     storageService
       .getTranscripts()
       .then(setTranscripts)
@@ -167,15 +156,15 @@ function App() {
               }
             />
           )}{" "}
-          {page === "tts" && <TTS />}{" "}
-            {page === "tts" && (
-              <TTS
-                onEditWithAI={(value) => {
-                  setAiDraft(value);
-                  setPage("ai");
-                }}
-              />
-            )}{" "}
+          {page === "tts" && (
+            <TTS
+              onEditWithAI={(value) => {
+                setAiDraft(value);
+                setPage("ai");
+              }}
+            />
+          )}{" "}
+          {page === "recordings" && (
             <Recordings recordings={recordings} setRecordings={setRecordings} />
           )}{" "}
           {page === "history" && (
@@ -184,8 +173,8 @@ function App() {
               setTranscripts={setTranscripts}
             />
           )}{" "}
-          {page === "ai" && <AITools />}{" "}
           {page === "translation" && <Translation />}{" "}
+           {page === "ai" && <AITools initialText={aiDraft} />} {" "}
           {page === "settings" && (
             <SettingsPage settings={settings} saveSettings={saveSettings} />
           )}
