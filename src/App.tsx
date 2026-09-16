@@ -95,12 +95,22 @@ function App() {
   const [settings, setSettings] = useState<UserSettings>(defaultSettings);
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
+  const [aiDraft, setAiDraft] = useState("");
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   useEffect(() => {
     storageService
       .getRecordings()
       .then(setRecordings)
       .catch(() => undefined);
+              {page === "tts" && (
+                <TTS
+                  onEditWithAI={(value) => {
+                    setAiDraft(value);
+                    setPage("ai");
+                  }}
+                />
+              )} {" "}
+              {page === "ai" && <AITools initialText={aiDraft} />} {" "}
     storageService
       .getTranscripts()
       .then(setTranscripts)
@@ -158,7 +168,14 @@ function App() {
             />
           )}{" "}
           {page === "tts" && <TTS />}{" "}
-          {page === "recordings" && (
+            {page === "tts" && (
+              <TTS
+                onEditWithAI={(value) => {
+                  setAiDraft(value);
+                  setPage("ai");
+                }}
+              />
+            )}{" "}
             <Recordings recordings={recordings} setRecordings={setRecordings} />
           )}{" "}
           {page === "history" && (
@@ -974,7 +991,7 @@ function download(name: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
-function TTS() {
+function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
   const [text, setText] = useState("");
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [voice, setVoice] = useState("");
@@ -1047,6 +1064,25 @@ function TTS() {
           >
             <Square size={14} /> Stop
           </button>
+          <button
+            className="secondary-button"
+            onClick={() => download("silencio-text.txt", text)}
+            disabled={!text.trim()}
+          >
+            <Download size={15} /> Download text
+          </button>
+          <button
+            className="secondary-button"
+            onClick={() => onEditWithAI(text)}
+            disabled={!text.trim()}
+          >
+            <BrainCircuit size={15} /> Edit with AI tools
+          </button>
+        </div>
+        <div className="notice">
+          Browser voices can play locally, but native speech synthesis does not
+          expose the generated audio as a downloadable file. Connect a
+          server-side TTS provider later to enable real audio export.
         </div>
       </section>
       <section className="settings-card">
@@ -1299,8 +1335,8 @@ function HistoryPage({
     </div>
   );
 }
-function AITools() {
-  const [text, setText] = useState("");
+function AITools({ initialText = "" }: { initialText?: string }) {
+  const [text, setText] = useState(initialText);
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const run = async (action: AIAction) => {
