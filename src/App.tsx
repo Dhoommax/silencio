@@ -534,13 +534,24 @@ function AudioPlayer({ recording }: { recording: Recording }) {
     return () => URL.revokeObjectURL(nextUrl);
   }, [recording.blob]);
   return url ? (
-    <audio
-      className="audio-player"
-      controls
-      preload="metadata"
-      src={url}
-      aria-label={`Play ${recording.name}`}
-    />
+    <span className="audio-actions">
+      <audio
+        className="audio-player"
+        controls
+        preload="metadata"
+        src={url}
+        aria-label={`Play ${recording.name}`}
+      />
+      <a
+        className="icon-button audio-download"
+        href={url}
+        download={`${recording.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "silencio-recording"}.${recording.mimeType.includes("ogg") ? "ogg" : recording.mimeType.includes("mp4") ? "m4a" : "webm"}`}
+        aria-label={`Download ${recording.name}`}
+        title="Download audio"
+      >
+        <Download size={15} />
+      </a>
+    </span>
   ) : (
     <span className="muted audio-unavailable">Audio unavailable</span>
   );
