@@ -303,6 +303,7 @@ function Topbar({
           <span className="status-dot" />
           {online ? "Online" : "Offline"}
         </span>
+        {!online && <span className="offline-note">Local data available</span>}
         <button className="icon-button" aria-label="Help">
           <CircleHelp size={19} />
         </button>
