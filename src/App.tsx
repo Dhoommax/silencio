@@ -1210,6 +1210,19 @@ function generateSubtitleText(text: string, format: "srt" | "vtt") {
   return format === "vtt" ? `WEBVTT\n\n${body}` : body;
 }
 
+function extractSubtitleText(source: string) {
+  return source
+    .replace(/^WEBVTT.*$/gim, "")
+    .split(/\r?\n\s*\r?\n/)
+    .map((block) => block
+      .split(/\r?\n/)
+      .filter((line) => line.trim() && !/^\d+$/.test(line.trim()) && !/-->/.test(line))
+      .join(" ")
+      .trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
 function download(name: string, content: string) {
   const url = URL.createObjectURL(new Blob([content], { type: "text/plain" }));
   const link = document.createElement("a");
@@ -1295,6 +1308,8 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
   const [voiceGender, setVoiceGender] = useState<VoiceGender>("any");
   const [rate, setRate] = useState(1);
   const [pitch, setPitch] = useState(1);
+  const [subtitleSource, setSubtitleSource] = useState("");
+  const [subtitleStatus, setSubtitleStatus] = useState("");
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureStatus, setCaptureStatus] = useState("");
   const speechRecorder = useRef<MediaRecorder | null>(null);
@@ -1371,6 +1386,23 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
   const stopSpeechCapture = () => {
     textToSpeechService.stop();
     speechRecorder.current?.stop();
+  };
+  const speakSubtitles = () => {
+    const subtitleText = extractSubtitleText(subtitleSource);
+    if (!subtitleText.trim()) {
+      setSubtitleStatus("Paste or import an SRT/VTT subtitle file first.");
+      return;
+    }
+    const segments = subtitleText.split(/\n+/).map((line) => {
+      const match = line.match(/^\s*\[([^\]]+)\]\s*(.*)$/);
+      const requestedLanguage = match?.[1]?.toLowerCase();
+      const segmentText = match?.[2] || line;
+      const segmentLanguage = languages.find((item) => item.label.toLowerCase() === requestedLanguage || item.code.toLowerCase() === requestedLanguage)?.code ?? language;
+      const segmentVoices = voices.filter((item) => item.lang.toLowerCase().startsWith(segmentLanguage.split("-")[0].toLowerCase()) && voiceGenderMatch(item, voiceGender));
+      return { text: segmentText, voice: segmentVoices[0] ?? selectedVoice, language: segmentLanguage, rate, pitch, volume: 1 };
+    });
+    textToSpeechService.speakSequence(segments);
+    setSubtitleStatus(`${segments.length} subtitle lines queued for speech.`);
   };
   return (
     <div className="tool-layout">
@@ -1454,6 +1486,42 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
           Mixed languages work line by line. Use tags such as <strong>[English] Hello</strong>, <strong>[Swahili] Habari</strong>, or <strong>[Portuguese] Ola</strong> to select the matching installed voice.
         </div>
         {captureStatus && <div className="notice">{captureStatus}</div>}
+        <div className="subtitle-speech-panel">
+          <div className="block-title">
+            <div>
+              <span className="eyebrow">Subtitle voice</span>
+              <h3>Speak subtitles</h3>
+            </div>
+            <FileText size={18} />
+          </div>
+          <textarea
+            className="large-input"
+            value={subtitleSource}
+            onChange={(event) => setSubtitleSource(event.target.value)}
+            placeholder="Paste SRT or VTT subtitles here..."
+          />
+          <div className="tool-actions">
+            <label className="secondary-button">
+              <FileText size={15} /> Import SRT/VTT
+              <input
+                type="file"
+                accept=".srt,.vtt,text/vtt,application/x-subrip"
+                hidden
+                onChange={async (event) => {
+                  const file = event.target.files?.[0];
+                  if (file) setSubtitleSource(await file.text());
+                }}
+              />
+            </label>
+            <button className="primary-button" onClick={speakSubtitles} disabled={!subtitleSource.trim()}>
+              <Play size={15} /> Speak subtitles
+            </button>
+            <button className="secondary-button" onClick={textToSpeechService.stop}>
+              <Square size={14} /> Stop
+            </button>
+          </div>
+          {subtitleStatus && <div className="notice">{subtitleStatus}</div>}
+        </div>
       </section>
       <section className="settings-card">
         <div className="block-title">
