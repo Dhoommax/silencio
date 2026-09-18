@@ -44,6 +44,7 @@ import type {
   Project,
   Recording,
   RecordingState,
+  SongProject,
   Transcript,
   UserSettings,
 } from "./types";
@@ -106,6 +107,7 @@ function App() {
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [songs, setSongs] = useState<SongProject[]>([]);
   const [activities, setActivities] = useState<ActivityEntry[]>([]);
   const [exportRecords, setExportRecords] = useState<ExportRecord[]>([]);
   const [aiDraft, setAiDraft] = useState("");
@@ -126,6 +128,10 @@ function App() {
     storageService
       .getProjects()
       .then(setProjects)
+      .catch(() => undefined);
+    storageService
+      .getSongProjects()
+      .then(setSongs)
       .catch(() => undefined);
     storageService
       .getActivities()
@@ -236,11 +242,20 @@ function App() {
               recordings={recordings}
               transcripts={transcripts}
               projects={projects}
+              songs={songs}
               setRecordings={setRecordings}
               setTranscripts={setTranscripts}
               setProjects={setProjects}
+              setSongs={setSongs}
               setActivities={setActivities}
               setExportRecords={setExportRecords}
+            />
+          )}{" "}
+          {page === "song-studio" && (
+            <SongStudioPage
+              songs={songs}
+              setSongs={setSongs}
+              recordActivity={recordActivity}
             />
           )}{" "}
           {page === "translation" && <Translation />}{" "}
@@ -270,6 +285,7 @@ function Sidebar({
     ["recordings", "Recordings", Archive],
     ["history", "History", History],
     ["projects", "Projects", Folder],
+    ["song-studio", "Song Studio", Waves],
     ["converter", "Audio Converter", FileAudio],
     ["effects", "Voice Effects", Volume2],
     ["export-center", "Export Center", Download],
@@ -364,6 +380,7 @@ function Topbar({
     recordings: "Recordings",
     history: "Transcript history",
     projects: "Projects",
+    "song-studio": "Song Studio",
     converter: "Audio converter",
     effects: "Voice effects",
     "export-center": "Export center",
@@ -1802,18 +1819,22 @@ function StoragePage({
   recordings,
   transcripts,
   projects,
+  songs,
   setRecordings,
   setTranscripts,
   setProjects,
+  setSongs,
   setActivities,
   setExportRecords,
 }: {
   recordings: Recording[];
   transcripts: Transcript[];
   projects: Project[];
+  songs: SongProject[];
   setRecordings: Dispatch<SetStateAction<Recording[]>>;
   setTranscripts: Dispatch<SetStateAction<Transcript[]>>;
   setProjects: Dispatch<SetStateAction<Project[]>>;
+  setSongs: Dispatch<SetStateAction<SongProject[]>>;
   setActivities: Dispatch<SetStateAction<ActivityEntry[]>>;
   setExportRecords: Dispatch<SetStateAction<ExportRecord[]>>;
 }) {
@@ -1831,6 +1852,7 @@ function StoragePage({
         <Stat icon={FileAudio} label="Recordings" value={String(recordings.length).padStart(2, "0")} trend="In IndexedDB" />
         <Stat icon={FileText} label="Transcripts" value={String(transcripts.length).padStart(2, "0")} trend="Saved locally" />
         <Stat icon={Folder} label="Projects" value={String(projects.length).padStart(2, "0")} trend="Folders and workspaces" />
+        <Stat icon={Waves} label="Songs" value={String(songs.length).padStart(2, "0")} trend="Song Studio" />
         <Stat icon={Database} label="Browser" value="Local" trend="IndexedDB only" />
       </div>
       <div className="settings-grid">
@@ -1839,6 +1861,7 @@ function StoragePage({
           <button className="danger-button" onClick={() => { if (window.confirm("Clear all recordings?")) { storageService.clearRecordings().catch(() => undefined); setRecordings([]); } }}>Clear recordings</button>
           <button className="danger-button" onClick={() => { if (window.confirm("Clear all transcripts?")) { storageService.clearTranscripts().catch(() => undefined); setTranscripts([]); } }}>Clear transcripts</button>
           <button className="danger-button" onClick={() => { if (window.confirm("Clear all projects?")) { storageService.clearProjects().catch(() => undefined); setProjects([]); } }}>Clear projects</button>
+          <button className="danger-button" onClick={() => { if (window.confirm("Clear all songs?")) { storageService.clearSongs().catch(() => undefined); setSongs([]); } }}>Clear songs</button>
           <button className="danger-button" onClick={() => { if (window.confirm("Clear all export history?")) { storageService.clearExports().catch(() => undefined); setExportRecords([]); } }}>Clear exports</button>
           <button className="danger-button" onClick={() => { if (window.confirm("Clear all activity log?")) { storageService.clearActivities().catch(() => undefined); setActivities([]); } }}>Clear activity</button>
         </section>
@@ -2141,6 +2164,231 @@ function AITools({ initialText = "" }: { initialText?: string }) {
     </div>
   );
 }
+
+function SongStudioPage({
+  songs,
+  setSongs,
+  recordActivity,
+}: {
+  songs: SongProject[];
+  setSongs: Dispatch<SetStateAction<SongProject[]>>;
+  recordActivity: (type: ActivityEntry["type"], message: string) => void;
+}) {
+  const [draftTitle, setDraftTitle] = useState("My song");
+  const [draftArtist, setDraftArtist] = useState("Independent artist");
+  const [draftMood, setDraftMood] = useState("cinematic");
+  const [draftIdea, setDraftIdea] = useState(
+    "A late-night introspective anthem with warm vocals, floating chords, and a spacious chorus.",
+  );
+
+  const createSong = () => {
+    const next: SongProject = {
+      id: uid(),
+      title: draftTitle.trim() || `Song ${songs.length + 1}`,
+      artistName: draftArtist.trim() || "Independent artist",
+      genre: "Alternative",
+      mood: draftMood,
+      language: "en-US",
+      description: "Local song brief created in SILENCIO.",
+      lyrics: "[Verse]\nWrite your lyrics here...\n\n[Chorus]\nAdd your hook here...",
+      idea: draftIdea.trim() || "Sketch your creative concept here.",
+      targetDuration: 180,
+      audience: "Listeners who connect with honest, emotional storytelling",
+      songStructure: [
+        {
+          id: uid(),
+          name: "Intro",
+          type: "intro",
+          text: "Set the atmosphere.",
+          start: 0,
+          end: 8,
+          duration: 8,
+          color: "#7c3aed",
+          collapsed: false,
+        },
+        {
+          id: uid(),
+          name: "Verse 1",
+          type: "verse",
+          text: "Tell the story.",
+          start: 8,
+          end: 32,
+          duration: 24,
+          color: "#22c55e",
+          collapsed: false,
+        },
+        {
+          id: uid(),
+          name: "Chorus",
+          type: "chorus",
+          text: "Deliver the emotional hook.",
+          start: 32,
+          end: 56,
+          duration: 24,
+          color: "#f59e0b",
+          collapsed: false,
+        },
+      ],
+      tracks: [
+        {
+          id: uid(),
+          name: "Lead vocal",
+          type: "lead-vocal",
+          volume: 100,
+          pan: 0,
+          muted: false,
+          solo: true,
+          loop: false,
+          fadeIn: 0,
+          fadeOut: 0,
+        },
+        {
+          id: uid(),
+          name: "Background music",
+          type: "background-music",
+          volume: 75,
+          pan: 0,
+          muted: false,
+          solo: false,
+          loop: true,
+          fadeIn: 0.5,
+          fadeOut: 0.5,
+        },
+      ],
+      takes: [],
+      subtitles: "WEBVTT\n\n00:00.000 --> 00:04.000\nIntro hook",
+      metadata: {
+        title: draftTitle.trim() || `Song ${songs.length + 1}`,
+        artist: draftArtist.trim() || "Independent artist",
+        album: "",
+        genre: "Alternative",
+        language: "en-US",
+        year: new Date().getFullYear().toString(),
+        description: "Local draft created in Song Studio.",
+        composer: "",
+        songwriter: "",
+      },
+      notes: "Creative notes and production reminders live here.",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      status: "draft",
+      currentStep: "idea",
+      versionName: "Draft v1",
+    };
+
+    setSongs((current) => [next, ...current]);
+    storageService.saveSongProject(next).catch(() => undefined);
+    recordActivity("song", `Created song project: ${next.title}`);
+  };
+
+  const removeSong = (id: string) => {
+    const song = songs.find((item) => item.id === id);
+    setSongs((current) => current.filter((item) => item.id !== id));
+    storageService.deleteSongProject(id).catch(() => undefined);
+    if (song) recordActivity("song", `Deleted song project: ${song.title}`);
+  };
+
+  return (
+    <div className="library">
+      <div className="library-toolbar">
+        <div>
+          <span className="eyebrow">Creative production</span>
+          <h2>Song Studio</h2>
+        </div>
+        <span className="support-badge supported">{songs.length} song briefs</span>
+      </div>
+
+      <div className="settings-grid">
+        <section className="settings-card">
+          <h3>Start a new song</h3>
+          <label>
+            Song title
+            <input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} />
+          </label>
+          <label>
+            Artist
+            <input value={draftArtist} onChange={(event) => setDraftArtist(event.target.value)} />
+          </label>
+          <label>
+            Mood
+            <select value={draftMood} onChange={(event) => setDraftMood(event.target.value)}>
+              <option value="cinematic">Cinematic</option>
+              <option value="uplifting">Uplifting</option>
+              <option value="moody">Moody</option>
+              <option value="dreamy">Dreamy</option>
+              <option value="energetic">Energetic</option>
+            </select>
+          </label>
+          <label>
+            Creative idea
+            <textarea
+              value={draftIdea}
+              onChange={(event) => setDraftIdea(event.target.value)}
+              rows={5}
+            />
+          </label>
+          <button className="primary-button" onClick={createSong}>Create song brief</button>
+        </section>
+
+        <section className="settings-card">
+          <h3>Production workflow</h3>
+          <div className="workflow-list">
+            {[
+              "Idea + concept",
+              "Lyrics and script",
+              "Structure builder",
+              "Vocal takes",
+              "Music import",
+              "Mix and subtitle sync",
+              "Export and versioning",
+            ].map((step) => (
+              <div className="workflow-item" key={step}>
+                <span className="status-dot green" />
+                <span>{step}</span>
+              </div>
+            ))}
+          </div>
+          <div className="notice">
+            This module organizes local recordings, lyrics, structure, tracks, and export details without pretending to generate real AI music or deepfake voices.
+          </div>
+        </section>
+      </div>
+
+      <div className="library-grid">
+        {songs.length ? (
+          songs.map((song) => (
+            <article className="library-card" key={song.id}>
+              <div className="card-top">
+                <span className="file-icon">
+                  <Waves size={20} />
+                </span>
+                <button className="icon-button" aria-label="Delete song" onClick={() => removeSong(song.id)}>
+                  <Trash2 size={15} />
+                </button>
+              </div>
+              <h3>{song.title}</h3>
+              <p>{song.artistName} · {song.mood}</p>
+              <div className="card-wave">
+                <Waveform />
+              </div>
+              <div className="card-footer">
+                <span>{song.status}</span>
+                <span>{song.currentStep}</span>
+              </div>
+              <p className="muted">{song.idea.slice(0, 120)}{song.idea.length > 120 ? "…" : ""}</p>
+            </article>
+          ))
+        ) : (
+          <div className="settings-card" style={{ gridColumn: "1 / -1" }}>
+            <h3>No song projects yet</h3>
+            <p className="muted">Create your first local song brief to start the production workflow.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Translation() {
   const [source, setSource] = useState("");
   const [result, setResult] = useState("");
