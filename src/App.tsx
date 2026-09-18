@@ -8,9 +8,11 @@ import {
   ChevronRight,
   CircleHelp,
   Clipboard,
+  Database,
   Download,
   FileAudio,
   FileText,
+  Folder,
   History,
   Home as HomeIcon,
   Languages,
@@ -29,7 +31,10 @@ import {
   X,
 } from "lucide-react";
 import type {
+  ActivityEntry,
+  ExportRecord,
   Page,
+  Project,
   Recording,
   RecordingState,
   Transcript,
@@ -93,6 +98,9 @@ function App() {
   const [settings, setSettings] = useState<UserSettings>(defaultSettings);
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [activities, setActivities] = useState<ActivityEntry[]>([]);
+  const [exportRecords, setExportRecords] = useState<ExportRecord[]>([]);
   const [aiDraft, setAiDraft] = useState("");
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   useEffect(() => {
@@ -107,6 +115,18 @@ function App() {
     storageService
       .getSettings()
       .then((value) => value && setSettings(value))
+      .catch(() => undefined);
+    storageService
+      .getProjects()
+      .then(setProjects)
+      .catch(() => undefined);
+    storageService
+      .getActivities()
+      .then(setActivities)
+      .catch(() => undefined);
+    storageService
+      .getExportRecords()
+      .then(setExportRecords)
       .catch(() => undefined);
     const online = () => setIsOnline(true);
     const offline = () => setIsOnline(false);
@@ -123,6 +143,16 @@ function App() {
     setSettings(next);
     storageService.saveSettings(next).catch(() => undefined);
   };
+  const recordActivity = (type: ActivityEntry["type"], message: string) => {
+    const entry: ActivityEntry = {
+      id: uid(),
+      type,
+      message,
+      createdAt: new Date().toISOString(),
+    };
+    setActivities((current) => [entry, ...current]);
+    storageService.saveActivity(entry).catch(() => undefined);
+  };
   return (
     <div className={`app ${settings.theme}`}>
       <Sidebar page={page} setPage={setPage} />
@@ -133,6 +163,7 @@ function App() {
             <Home
               recordings={recordings}
               transcripts={transcripts}
+              activities={activities}
               setPage={setPage}
             />
           )}{" "}
@@ -165,12 +196,43 @@ function App() {
             />
           )}{" "}
           {page === "recordings" && (
-            <Recordings recordings={recordings} setRecordings={setRecordings} />
+            <Recordings
+              recordings={recordings}
+              setRecordings={setRecordings}
+              recordActivity={recordActivity}
+            />
           )}{" "}
           {page === "history" && (
             <HistoryPage
               transcripts={transcripts}
               setTranscripts={setTranscripts}
+              recordActivity={recordActivity}
+            />
+          )}{" "}
+          {page === "projects" && (
+            <ProjectsPage
+              projects={projects}
+              setProjects={setProjects}
+              recordActivity={recordActivity}
+            />
+          )}{" "}
+          {page === "converter" && <AudioConverterPage />}{" "}
+          {page === "export-center" && (
+            <ExportCenterPage
+              exportRecords={exportRecords}
+              setExportRecords={setExportRecords}
+            />
+          )}{" "}
+          {page === "storage" && (
+            <StoragePage
+              recordings={recordings}
+              transcripts={transcripts}
+              projects={projects}
+              setRecordings={setRecordings}
+              setTranscripts={setTranscripts}
+              setProjects={setProjects}
+              setActivities={setActivities}
+              setExportRecords={setExportRecords}
             />
           )}{" "}
           {page === "translation" && <Translation />}{" "}
@@ -199,6 +261,10 @@ function Sidebar({
     ["tts", "Text to Speech", Volume2],
     ["recordings", "Recordings", Archive],
     ["history", "History", History],
+    ["projects", "Projects", Folder],
+    ["converter", "Audio Converter", FileAudio],
+    ["export-center", "Export Center", Download],
+    ["storage", "Storage", Database],
     ["ai", "AI Tools", BrainCircuit],
     ["translation", "Translation", Languages],
     ["settings", "Settings", Settings],
@@ -288,6 +354,10 @@ function Topbar({
     tts: "Text to speech",
     recordings: "Recordings",
     history: "Transcript history",
+    projects: "Projects",
+    converter: "Audio converter",
+    "export-center": "Export center",
+    storage: "Storage",
     ai: "AI tools",
     translation: "Translation",
     settings: "Settings",
@@ -318,10 +388,12 @@ function Topbar({
 function Home({
   recordings,
   transcripts,
+  activities,
   setPage,
 }: {
   recordings: Recording[];
   transcripts: Transcript[];
+  activities: ActivityEntry[];
   setPage: (page: Page) => void;
 }) {
   return (
@@ -404,20 +476,39 @@ function Home({
               View all <ArrowRight size={14} />
             </button>
           </div>
-          {recordings.length === 0 ? (
-            <Empty
-              icon={Mic}
-              title="No recordings yet"
-              text="Tap the microphone to create your first recording."
-              action="Record a voice note"
-              onClick={() => setPage("record")}
-            />
+          {activities.length === 0 ? (
+            recordings.length === 0 ? (
+              <Empty
+                icon={Mic}
+                title="No recordings yet"
+                text="Tap the microphone to create your first recording."
+                action="Record a voice note"
+                onClick={() => setPage("record")}
+              />
+            ) : (
+              recordings
+                .slice(0, 3)
+                .map((recording) => (
+                  <RecordingRow key={recording.id} recording={recording} />
+                ))
+            )
           ) : (
-            recordings
-              .slice(0, 3)
-              .map((recording) => (
-                <RecordingRow key={recording.id} recording={recording} />
-              ))
+            <div className="history-list">
+              {activities.slice(0, 6).map((entry) => (
+                <article className="history-item" key={entry.id}>
+                  <span className="file-icon">
+                    <Activity size={16} />
+                  </span>
+                  <span>
+                    <strong>{entry.type}</strong>
+                    <small>
+                      {new Date(entry.createdAt).toLocaleString()}
+                    </small>
+                    <p>{entry.message}</p>
+                  </span>
+                </article>
+              ))}
+            </div>
           )}
         </section>
         <section className="content-block quick-actions">
@@ -431,6 +522,9 @@ function Home({
             ["record", "Record voice", Mic, "Capture a thought"],
             ["transcription", "Transcribe", FileText, "Edit words precisely"],
             ["tts", "Text to speech", Volume2, "Listen back"],
+            ["projects", "Projects", Folder, "Organize the workspace"],
+            ["converter", "Audio converter", FileAudio, "Convert local files"],
+            ["export-center", "Export center", Download, "Download everything"],
           ].map(([id, label, Icon, desc]) => (
             <button
               className="action-row"
@@ -893,6 +987,53 @@ function TranscriptWorkspace({
     language: "en-US",
     text: "",
   };
+  const generateSubtitleFile = (format: "srt" | "vtt") => {
+    const source = text.trim();
+    if (!source) return;
+    const blocks = source
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .flatMap((line, index, lines) => {
+        const words = line.split(/\s+/).filter(Boolean);
+        const duration = Math.max(2, Math.min(8, words.length / 2.4));
+        const start = index * 3;
+        return [
+          {
+            start,
+            end: start + duration,
+            text: line,
+          },
+          ...(!lines[index + 1] ? [] : []),
+        ];
+      });
+
+    const content = blocks
+      .map((block, index) => {
+        if (format === "vtt") {
+          return [
+            `${index + 1}`,
+            `${formatTimecode(block.start)} --> ${formatTimecode(block.end)}`,
+            block.text,
+            "",
+          ].join("\n");
+        }
+
+        return [
+          `${index + 1}`,
+          `${formatTimecode(block.start, true)} --> ${formatTimecode(block.end, true)}`,
+          block.text,
+          "",
+        ].join("\n");
+      })
+      .join("\n");
+
+    download(
+      format === "srt" ? "transcript.srt" : "transcript.vtt",
+      format === "vtt" ? `WEBVTT\n\n${content}` : content,
+    );
+  };
+
   const save = () => {
     const next = { ...current, text };
     storageService
@@ -957,6 +1098,12 @@ function TranscriptWorkspace({
           <button onClick={() => setText("")}>
             <Trash2 size={15} /> Clear
           </button>
+          <button onClick={() => generateSubtitleFile("srt")} disabled={!text.trim()}>
+            <Download size={15} /> SRT
+          </button>
+          <button onClick={() => generateSubtitleFile("vtt")} disabled={!text.trim()}>
+            <Download size={15} /> VTT
+          </button>
           <button onClick={() => download("transcript.txt", text)}>
             <Download size={15} /> TXT
           </button>
@@ -983,6 +1130,56 @@ function TranscriptWorkspace({
     </div>
   );
 }
+function formatTimecode(totalSeconds: number, srt = false) {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (srt) {
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(Math.floor(seconds)).padStart(2, "0")},${String(Math.round((seconds % 1) * 1000)).padStart(3, "0")}`;
+  }
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds.toFixed(3)).padStart(6, "0")}`;
+}
+
+function generateSubtitleText(text: string, format: "srt" | "vtt") {
+  const blocks = text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (!blocks.length) return "";
+
+  const subtitleEntries = blocks.map((line, index) => {
+    const words = line.split(/\s+/).filter(Boolean);
+    const start = index * 3;
+    const end = start + Math.max(2.2, Math.min(8, words.length / 2.4));
+    return { start, end, text: line };
+  });
+
+  const body = subtitleEntries
+    .map((block, index) => {
+      if (format === "vtt") {
+        return [
+          `${index + 1}`,
+          `${formatTimecode(block.start)} --> ${formatTimecode(block.end)}`,
+          block.text,
+          "",
+        ].join("\n");
+      }
+
+      return [
+        `${index + 1}`,
+        `${formatTimecode(block.start, true)} --> ${formatTimecode(block.end, true)}`,
+        block.text,
+        "",
+      ].join("\n");
+    })
+    .join("\n");
+
+  return format === "vtt" ? `WEBVTT\n\n${body}` : body;
+}
+
 function download(name: string, content: string) {
   const url = URL.createObjectURL(new Blob([content], { type: "text/plain" }));
   const link = document.createElement("a");
@@ -1071,6 +1268,20 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
             disabled={!text.trim()}
           >
             <Download size={15} /> Download text
+          </button>
+          <button
+            className="secondary-button"
+            onClick={() => download("silencio-subtitles.srt", generateSubtitleText(text, "srt"))}
+            disabled={!text.trim()}
+          >
+            <Download size={15} /> Generate SRT
+          </button>
+          <button
+            className="secondary-button"
+            onClick={() => download("silencio-subtitles.vtt", generateSubtitleText(text, "vtt"))}
+            disabled={!text.trim()}
+          >
+            <Download size={15} /> Generate VTT
           </button>
           <button
             className="secondary-button"
@@ -1193,9 +1404,11 @@ function Range({
 function Recordings({
   recordings,
   setRecordings,
+  recordActivity,
 }: {
   recordings: Recording[];
   setRecordings: (items: Recording[]) => void;
+  recordActivity: (type: ActivityEntry["type"], message: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const visible = recordings.filter((item) =>
@@ -1231,13 +1444,14 @@ function Recordings({
                   onClick={() =>
                     storageService
                       .deleteRecording(item.id)
-                      .then(() =>
+                      .then(() => {
                         setRecordings(
                           recordings.filter(
                             (recording) => recording.id !== item.id,
                           ),
-                        ),
-                      )
+                        );
+                        recordActivity("recording", `Deleted recording: ${item.name}`);
+                      })
                   }
                 >
                   <Trash2 size={15} />
@@ -1277,9 +1491,11 @@ function Recordings({
 function HistoryPage({
   transcripts,
   setTranscripts,
+  recordActivity,
 }: {
   transcripts: Transcript[];
   setTranscripts: (items: Transcript[]) => void;
+  recordActivity: (type: ActivityEntry["type"], message: string) => void;
 }) {
   return (
     <div className="library">
@@ -1312,13 +1528,14 @@ function HistoryPage({
                 onClick={() =>
                   storageService
                     .deleteTranscript(item.id)
-                    .then(() =>
+                    .then(() => {
                       setTranscripts(
                         transcripts.filter(
                           (transcript) => transcript.id !== item.id,
                         ),
-                      ),
-                    )
+                      );
+                      recordActivity("transcript", `Deleted transcript: ${item.title}`);
+                    })
                 }
               >
                 <Trash2 size={15} />
@@ -1336,6 +1553,294 @@ function HistoryPage({
     </div>
   );
 }
+
+function ProjectsPage({
+  projects,
+  setProjects,
+  recordActivity,
+}: {
+  projects: Project[];
+  setProjects: (items: Project[]) => void;
+  recordActivity: (type: ActivityEntry["type"], message: string) => void;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const createProject = () => {
+    const next = {
+      id: uid(),
+      name: name.trim() || `Project ${projects.length + 1}`,
+      description: description.trim() || "Local project workspace",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      favorite: false,
+    };
+    setProjects((current) => [next, ...current]);
+    storageService.saveProject(next).catch(() => undefined);
+    recordActivity("project", `Created project: ${next.name}`);
+    setName("");
+    setDescription("");
+  };
+  return (
+    <div className="library">
+      <div className="library-toolbar">
+        <div>
+          <span className="eyebrow">Local workspace</span>
+          <h2>Projects</h2>
+        </div>
+        <button className="primary-button compact" onClick={createProject}>
+          New project
+        </button>
+      </div>
+      <div className="settings-grid">
+        <section className="settings-card">
+          <h3>Create project</h3>
+          <label>
+            Name
+            <input value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+          <label>
+            Description
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+            />
+          </label>
+        </section>
+        <section className="settings-card">
+          <h3>Projects</h3>
+          {projects.length ? (
+            <div className="history-list">
+              {projects.map((project) => (
+                <article className="history-item" key={project.id}>
+                  <span className="file-icon">
+                    <Folder size={16} />
+                  </span>
+                  <span>
+                    <strong>{project.name}</strong>
+                    <small>
+                      {new Date(project.createdAt).toLocaleDateString()}
+                    </small>
+                    <p>{project.description}</p>
+                  </span>
+                  <button
+                    className="icon-button"
+                    onClick={() => {
+                      setProjects((current) => current.filter((item) => item.id !== project.id));
+                      storageService.deleteProject(project.id).catch(() => undefined);
+                      recordActivity("project", `Deleted project: ${project.name}`);
+                    }}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="muted">No local projects yet.</p>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function AudioConverterPage() {
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
+  const [outputFormat, setOutputFormat] = useState<"wav" | "webm">("wav");
+  const [convertedUrl, setConvertedUrl] = useState<string | null>(null);
+  const [status, setStatus] = useState("Choose a local audio file to convert.");
+  const convertFile = async () => {
+    if (!sourceFile) return;
+    if (outputFormat !== "wav") {
+      setStatus("This browser build supports WAV conversion locally. Other formats require a dedicated encoder or server-side conversion.");
+      return;
+    }
+    try {
+      const arrayBuffer = await sourceFile.arrayBuffer();
+      const audioContext = new AudioContext();
+      const decoded = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+      const wavBlob = audioBufferToWav(decoded);
+      const url = URL.createObjectURL(wavBlob);
+      setConvertedUrl(url);
+      setStatus("Conversion complete. WAV output is ready for preview and download.");
+    } catch (error) {
+      setStatus(`Conversion unavailable: ${(error as Error).message}`);
+      setConvertedUrl(null);
+    }
+  };
+
+  const audioBufferToWav = (audioBuffer: AudioBuffer) => {
+    const channels = audioBuffer.numberOfChannels;
+    const sampleRate = audioBuffer.sampleRate;
+    const length = audioBuffer.length * channels * 2;
+    const buffer = new ArrayBuffer(44 + length);
+    const view = new DataView(buffer);
+    const writeString = (offset: number, text: string) => {
+      for (let i = 0; i < text.length; i += 1) view.setUint8(offset + i, text.charCodeAt(i));
+    };
+    writeString(0, "RIFF");
+    view.setUint32(4, 36 + length, true);
+    writeString(8, "WAVE");
+    writeString(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, channels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * channels * 2, true);
+    view.setUint16(32, channels * 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, "data");
+    view.setUint32(40, length, true);
+    let offset = 44;
+    const channelData = Array.from({ length: channels }, (_, index) => audioBuffer.getChannelData(index));
+    for (let i = 0; i < audioBuffer.length; i += 1) {
+      for (let channel = 0; channel < channels; channel += 1) {
+        const sample = Math.max(-1, Math.min(1, channelData[channel][i]));
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+        offset += 2;
+      }
+    }
+    return new Blob([buffer], { type: "audio/wav" });
+  };
+
+  return (
+    <div className="tool-layout">
+      <section className="tool-main">
+        <div className="tool-title">
+          <span className="eyebrow">Audio conversion</span>
+          <h2>Convert local audio files.</h2>
+        </div>
+        <input
+          type="file"
+          accept="audio/*"
+          onChange={(event) => setSourceFile(event.target.files?.[0] ?? null)}
+        />
+        <label>
+          Output format
+          <select value={outputFormat} onChange={(event) => setOutputFormat(event.target.value as "wav" | "webm")}>
+            <option value="wav">WAV (local conversion)</option>
+            <option value="webm">WebM (limited / browser-dependent)</option>
+          </select>
+        </label>
+        <div className="tool-actions">
+          <button className="primary-button" onClick={convertFile} disabled={!sourceFile}>
+            Convert file
+          </button>
+          {convertedUrl && (
+            <a className="secondary-button" href={convertedUrl} download="converted-audio.wav">
+              Download result
+            </a>
+          )}
+        </div>
+        <p className="notice">{status}</p>
+        {convertedUrl && (
+          <audio controls src={convertedUrl} style={{ width: "100%" }} />
+        )}
+      </section>
+    </div>
+  );
+}
+
+function ExportCenterPage({
+  exportRecords,
+  setExportRecords,
+}: {
+  exportRecords: ExportRecord[];
+  setExportRecords: (items: ExportRecord[]) => void;
+}) {
+  return (
+    <div className="library">
+      <div className="library-toolbar">
+        <div>
+          <span className="eyebrow">Downloads</span>
+          <h2>Export center</h2>
+        </div>
+        <span className="support-badge supported">{exportRecords.length} recent</span>
+      </div>
+      {exportRecords.length ? (
+        <div className="history-list">
+          {exportRecords.map((item) => (
+            <article className="history-item" key={item.id}>
+              <span className="file-icon">
+                <Download size={16} />
+              </span>
+              <span>
+                <strong>{item.name}</strong>
+                <small>
+                  {item.format} · {new Date(item.createdAt).toLocaleDateString()} · {item.status}
+                </small>
+                <p>{item.type} export · {Math.max(0, item.size)} bytes</p>
+              </span>
+              <button
+                className="icon-button"
+                onClick={() => setExportRecords((current) => current.filter((entry) => entry.id !== item.id))}
+              >
+                <Trash2 size={15} />
+              </button>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <Empty icon={Download} title="No exports yet" text="Your recent downloads and exports will appear here." />
+      )}
+    </div>
+  );
+}
+
+function StoragePage({
+  recordings,
+  transcripts,
+  projects,
+  setRecordings,
+  setTranscripts,
+  setProjects,
+  setActivities,
+  setExportRecords,
+}: {
+  recordings: Recording[];
+  transcripts: Transcript[];
+  projects: Project[];
+  setRecordings: (items: Recording[]) => void;
+  setTranscripts: (items: Transcript[]) => void;
+  setProjects: (items: Project[]) => void;
+  setActivities: (items: ActivityEntry[]) => void;
+  setExportRecords: (items: ExportRecord[]) => void;
+}) {
+  const totalBytes = recordings.reduce((sum, item) => sum + item.size, 0) + transcripts.reduce((sum, item) => sum + item.text.length * 2, 0);
+  return (
+    <div className="library">
+      <div className="library-toolbar">
+        <div>
+          <span className="eyebrow">Browser storage</span>
+          <h2>Storage management</h2>
+        </div>
+        <span className="support-badge supported">{(totalBytes / 1024 / 1024).toFixed(2)} MB used</span>
+      </div>
+      <div className="stats-grid">
+        <Stat icon={FileAudio} label="Recordings" value={String(recordings.length).padStart(2, "0")} trend="In IndexedDB" />
+        <Stat icon={FileText} label="Transcripts" value={String(transcripts.length).padStart(2, "0")} trend="Saved locally" />
+        <Stat icon={Folder} label="Projects" value={String(projects.length).padStart(2, "0")} trend="Folders and workspaces" />
+        <Stat icon={Database} label="Browser" value="Local" trend="IndexedDB only" />
+      </div>
+      <div className="settings-grid">
+        <section className="settings-card">
+          <h3>Destructive actions</h3>
+          <button className="danger-button" onClick={() => { if (window.confirm("Clear all recordings?")) { storageService.clearRecordings().catch(() => undefined); setRecordings([]); } }}>Clear recordings</button>
+          <button className="danger-button" onClick={() => { if (window.confirm("Clear all transcripts?")) { storageService.clearTranscripts().catch(() => undefined); setTranscripts([]); } }}>Clear transcripts</button>
+          <button className="danger-button" onClick={() => { if (window.confirm("Clear all projects?")) { storageService.clearProjects().catch(() => undefined); setProjects([]); } }}>Clear projects</button>
+          <button className="danger-button" onClick={() => { if (window.confirm("Clear all export history?")) { storageService.clearExports().catch(() => undefined); setExportRecords([]); } }}>Clear exports</button>
+          <button className="danger-button" onClick={() => { if (window.confirm("Clear all activity log?")) { storageService.clearActivities().catch(() => undefined); setActivities([]); } }}>Clear activity</button>
+        </section>
+        <section className="settings-card">
+          <h3>Backup</h3>
+          <button className="secondary-button" onClick={async () => { const backup = await storageService.exportBackup(); const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'silencio-backup.json'; link.click(); URL.revokeObjectURL(url); }}>Export backup</button>
+          <p className="muted">Local backup uses IndexedDB data and browser-only storage when available.</p>
+        </section>
+      </div>
+    </div>
+  );
+}
+
 function AITools({ initialText = "" }: { initialText?: string }) {
   const [text, setText] = useState(initialText);
   const [result, setResult] = useState("");
