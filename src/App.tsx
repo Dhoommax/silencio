@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import {
   Activity,
   Archive,
@@ -217,6 +224,7 @@ function App() {
             />
           )}{" "}
           {page === "converter" && <AudioConverterPage />}{" "}
+          {page === "effects" && <VoiceEffectsPage />}{" "}
           {page === "export-center" && (
             <ExportCenterPage
               exportRecords={exportRecords}
@@ -263,6 +271,7 @@ function Sidebar({
     ["history", "History", History],
     ["projects", "Projects", Folder],
     ["converter", "Audio Converter", FileAudio],
+    ["effects", "Voice Effects", Volume2],
     ["export-center", "Export Center", Download],
     ["storage", "Storage", Database],
     ["ai", "AI Tools", BrainCircuit],
@@ -356,6 +365,7 @@ function Topbar({
     history: "Transcript history",
     projects: "Projects",
     converter: "Audio converter",
+    effects: "Voice effects",
     "export-center": "Export center",
     storage: "Storage",
     ai: "AI tools",
@@ -524,6 +534,7 @@ function Home({
             ["tts", "Text to speech", Volume2, "Listen back"],
             ["projects", "Projects", Folder, "Organize the workspace"],
             ["converter", "Audio converter", FileAudio, "Convert local files"],
+            ["effects", "Voice effects", Volume2, "Polish tone and output"],
             ["export-center", "Export center", Download, "Download everything"],
           ].map(([id, label, Icon, desc]) => (
             <button
@@ -1494,7 +1505,7 @@ function HistoryPage({
   recordActivity,
 }: {
   transcripts: Transcript[];
-  setTranscripts: (items: Transcript[]) => void;
+  setTranscripts: Dispatch<SetStateAction<Transcript[]>>;
   recordActivity: (type: ActivityEntry["type"], message: string) => void;
 }) {
   return (
@@ -1560,7 +1571,7 @@ function ProjectsPage({
   recordActivity,
 }: {
   projects: Project[];
-  setProjects: (items: Project[]) => void;
+  setProjects: Dispatch<SetStateAction<Project[]>>;
   recordActivity: (type: ActivityEntry["type"], message: string) => void;
 }) {
   const [name, setName] = useState("");
@@ -1746,7 +1757,7 @@ function ExportCenterPage({
   setExportRecords,
 }: {
   exportRecords: ExportRecord[];
-  setExportRecords: (items: ExportRecord[]) => void;
+  setExportRecords: Dispatch<SetStateAction<ExportRecord[]>>;
 }) {
   return (
     <div className="library">
@@ -1800,11 +1811,11 @@ function StoragePage({
   recordings: Recording[];
   transcripts: Transcript[];
   projects: Project[];
-  setRecordings: (items: Recording[]) => void;
-  setTranscripts: (items: Transcript[]) => void;
-  setProjects: (items: Project[]) => void;
-  setActivities: (items: ActivityEntry[]) => void;
-  setExportRecords: (items: ExportRecord[]) => void;
+  setRecordings: Dispatch<SetStateAction<Recording[]>>;
+  setTranscripts: Dispatch<SetStateAction<Transcript[]>>;
+  setProjects: Dispatch<SetStateAction<Project[]>>;
+  setActivities: Dispatch<SetStateAction<ActivityEntry[]>>;
+  setExportRecords: Dispatch<SetStateAction<ExportRecord[]>>;
 }) {
   const totalBytes = recordings.reduce((sum, item) => sum + item.size, 0) + transcripts.reduce((sum, item) => sum + item.text.length * 2, 0);
   return (
@@ -1837,6 +1848,224 @@ function StoragePage({
           <p className="muted">Local backup uses IndexedDB data and browser-only storage when available.</p>
         </section>
       </div>
+    </div>
+  );
+}
+
+function VoiceEffectsPage() {
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
+  const [processedUrl, setProcessedUrl] = useState<string | null>(null);
+  const [status, setStatus] = useState("Choose a local audio file to process.");
+  const [settings, setSettings] = useState({
+    gain: 1.1,
+    bass: 0,
+    treble: 0,
+    echo: 0.1,
+    lowPass: 18000,
+    highPass: 20,
+  });
+
+  useEffect(() => {
+    return () => {
+      if (processedUrl) URL.revokeObjectURL(processedUrl);
+    };
+  }, [processedUrl]);
+
+  const updateSetting = <K extends keyof typeof settings>(
+    key: K,
+    value: (typeof settings)[K],
+  ) => setSettings((current) => ({ ...current, [key]: value }));
+
+  const renderToWav = (audioBuffer: AudioBuffer) => {
+    const numberOfChannels = audioBuffer.numberOfChannels;
+    const sampleRate = audioBuffer.sampleRate;
+    const format = 1;
+    const bitDepth = 16;
+    const bytesPerSample = bitDepth / 8;
+    const blockAlign = numberOfChannels * bytesPerSample;
+    const dataLength = audioBuffer.length * blockAlign;
+    const buffer = new ArrayBuffer(44 + dataLength);
+    const view = new DataView(buffer);
+
+    const writeString = (offset: number, text: string) => {
+      for (let i = 0; i < text.length; i += 1) {
+        view.setUint8(offset + i, text.charCodeAt(i));
+      }
+    };
+
+    writeString(0, "RIFF");
+    view.setUint32(4, 36 + dataLength, true);
+    writeString(8, "WAVE");
+    writeString(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, format, true);
+    view.setUint16(22, numberOfChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * blockAlign, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitDepth, true);
+    writeString(36, "data");
+    view.setUint32(40, dataLength, true);
+
+    let offset = 44;
+    const channelData = Array.from({ length: numberOfChannels }, (_, index) =>
+      audioBuffer.getChannelData(index),
+    );
+
+    for (let i = 0; i < audioBuffer.length; i += 1) {
+      for (let channel = 0; channel < numberOfChannels; channel += 1) {
+        const value = Math.max(-1, Math.min(1, channelData[channel][i]));
+        view.setInt16(offset, value < 0 ? value * 0x8000 : value * 0x7fff, true);
+        offset += 2;
+      }
+    }
+
+    return new Blob([buffer], { type: "audio/wav" });
+  };
+
+  const applyEffects = async () => {
+    if (!sourceFile) {
+      setStatus("Please choose an audio file to process.");
+      return;
+    }
+
+    try {
+      const audioContext = new AudioContext();
+      const arrayBuffer = await sourceFile.arrayBuffer();
+      const decoded = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+
+      const offlineContext = new OfflineAudioContext(
+        decoded.numberOfChannels,
+        decoded.length,
+        decoded.sampleRate,
+      );
+
+      const source = offlineContext.createBufferSource();
+      source.buffer = decoded;
+
+      const gainNode = offlineContext.createGain();
+      gainNode.gain.value = settings.gain;
+
+      const bassNode = offlineContext.createBiquadFilter();
+      bassNode.type = "lowshelf";
+      bassNode.frequency.value = 200;
+      bassNode.gain.value = settings.bass;
+
+      const trebleNode = offlineContext.createBiquadFilter();
+      trebleNode.type = "highshelf";
+      trebleNode.frequency.value = 3000;
+      trebleNode.gain.value = settings.treble;
+
+      const lowPassNode = offlineContext.createBiquadFilter();
+      lowPassNode.type = "lowpass";
+      lowPassNode.frequency.value = settings.lowPass;
+      lowPassNode.Q.value = 0.5;
+
+      const highPassNode = offlineContext.createBiquadFilter();
+      highPassNode.type = "highpass";
+      highPassNode.frequency.value = settings.highPass;
+      highPassNode.Q.value = 0.5;
+
+      const delayNode = offlineContext.createDelay(1.5);
+      delayNode.delayTime.value = 0.18;
+      const feedbackNode = offlineContext.createGain();
+      feedbackNode.gain.value = settings.echo;
+      const echoMix = offlineContext.createGain();
+      echoMix.gain.value = settings.echo;
+
+      const convolver = offlineContext.createConvolver();
+      const impulse = offlineContext.createBuffer(
+        1,
+        offlineContext.sampleRate * 2,
+        offlineContext.sampleRate,
+      );
+      const impulseData = impulse.getChannelData(0);
+      for (let i = 0; i < impulseData.length; i += 1) {
+        impulseData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / impulseData.length, 2);
+      }
+      convolver.buffer = impulse;
+      const reverbGain = offlineContext.createGain();
+      reverbGain.gain.value = settings.echo > 0 ? settings.echo * 0.5 : 0;
+
+      source.connect(bassNode);
+      bassNode.connect(trebleNode);
+      trebleNode.connect(highPassNode);
+      highPassNode.connect(lowPassNode);
+      lowPassNode.connect(gainNode);
+      gainNode.connect(offlineContext.destination);
+
+      gainNode.connect(delayNode);
+      delayNode.connect(feedbackNode);
+      feedbackNode.connect(delayNode);
+      delayNode.connect(echoMix);
+      echoMix.connect(offlineContext.destination);
+
+      gainNode.connect(convolver);
+      convolver.connect(reverbGain);
+      reverbGain.connect(offlineContext.destination);
+
+      source.start(0);
+      const rendered = await offlineContext.startRendering();
+      const wavBlob = renderToWav(rendered);
+      const url = URL.createObjectURL(wavBlob);
+      setProcessedUrl((current) => {
+        if (current) URL.revokeObjectURL(current);
+        return url;
+      });
+      setStatus("Effects applied successfully. Preview and download the processed WAV output.");
+      await audioContext.close();
+    } catch (error) {
+      setStatus(`Audio processing unavailable: ${(error as Error).message}`);
+    }
+  };
+
+  const previewUrl = processedUrl ?? (sourceFile ? URL.createObjectURL(sourceFile) : "");
+
+  return (
+    <div className="tool-layout">
+      <section className="tool-main">
+        <div className="tool-title">
+          <span className="eyebrow">Voice effects studio</span>
+          <h2>Shape the tone of your recording.</h2>
+          <p>
+            This process uses browser-native Web Audio APIs and exports a real WAV file when supported.
+          </p>
+        </div>
+        <input
+          type="file"
+          accept="audio/*,video/*"
+          onChange={(event) => setSourceFile(event.target.files?.[0] ?? null)}
+        />
+        <div className="tool-actions">
+          <button className="primary-button" onClick={applyEffects} disabled={!sourceFile}>
+            <Volume2 size={16} /> Apply effects
+          </button>
+          {processedUrl && (
+            <a className="secondary-button" href={processedUrl} download="silencio-processed.wav">
+              <Download size={15} /> Download WAV
+            </a>
+          )}
+        </div>
+        <p className="notice">{status}</p>
+        {previewUrl && (
+          <audio controls src={previewUrl} style={{ width: "100%" }} />
+        )}
+      </section>
+      <section className="settings-card">
+        <div className="block-title">
+          <div>
+            <span className="eyebrow">Processing</span>
+            <h3>Effect controls</h3>
+          </div>
+          <Volume2 size={18} />
+        </div>
+        <Range label="Volume" value={settings.gain} min={0.4} max={1.8} step={0.1} setValue={(value) => updateSetting("gain", value)} />
+        <Range label="Bass" value={settings.bass} min={-12} max={12} step={1} setValue={(value) => updateSetting("bass", value)} />
+        <Range label="Treble" value={settings.treble} min={-12} max={12} step={1} setValue={(value) => updateSetting("treble", value)} />
+        <Range label="Echo" value={settings.echo} min={0} max={0.8} step={0.05} setValue={(value) => updateSetting("echo", value)} />
+        <Range label="Low pass" value={settings.lowPass} min={500} max={20000} step={100} setValue={(value) => updateSetting("lowPass", value)} />
+        <Range label="High pass" value={settings.highPass} min={20} max={4000} step={20} setValue={(value) => updateSetting("highPass", value)} />
+      </section>
     </div>
   );
 }

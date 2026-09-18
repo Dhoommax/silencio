@@ -1,5 +1,5 @@
 export type RecordingState = 'idle' | 'recording' | 'paused' | 'processing' | 'completed' | 'error';
-export type Page = 'home' | 'record' | 'transcription' | 'tts' | 'recordings' | 'history' | 'ai' | 'translation' | 'settings' | 'projects' | 'converter' | 'export-center' | 'storage';
+export type Page = 'home' | 'record' | 'transcription' | 'tts' | 'recordings' | 'history' | 'ai' | 'translation' | 'settings' | 'projects' | 'converter' | 'effects' | 'export-center' | 'storage';
 export interface Recording { id: string; name: string; createdAt: string; duration: number; mimeType: string; size: number; language: string; transcriptionStatus: 'not-started' | 'complete'; blob?: Blob; favorite?: boolean; projectId?: string; }
 export interface Transcript { id: string; title: string; text: string; createdAt: string; language: string; recordingId?: string; projectId?: string; }
 export interface UserSettings { theme: 'dark' | 'light'; language: string; continuous: boolean; interimResults: boolean; noiseSuppression: boolean; echoCancellation: boolean; autoGainControl: boolean; fontSize: 'small' | 'medium' | 'large'; }
