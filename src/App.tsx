@@ -271,6 +271,33 @@ function App() {
         </div>
       </main>
       <BottomNav page={page} setPage={setPage} />
+      <FloatingSupport />
+    </div>
+  );
+}
+
+function FloatingSupport() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="floating-support">
+      {open && (
+        <div className="floating-support-menu">
+          <strong>Customer support</strong>
+          <a href="https://wa.me/255767828430" target="_blank" rel="noreferrer">
+            <MessageCircle size={16} /> WhatsApp
+          </a>
+          <a href="mailto:helgadhoom@gmail.com">
+            <Mail size={16} /> Email
+          </a>
+          <a href="tel:0762385627">
+            <Phone size={16} /> Call 0762 385 627
+          </a>
+        </div>
+      )}
+      <button className="floating-support-button" onClick={() => setOpen((current) => !current)} aria-label="Open customer support">
+        <MessageCircle size={21} />
+        <span>Support</span>
+      </button>
     </div>
   );
 }

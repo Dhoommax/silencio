@@ -209,6 +209,49 @@ textarea { resize: vertical; min-height: 170px; }
 .support-menu a:hover { background: rgba(124, 231, 227, 0.08); color: var(--text); }
 .support-menu small { grid-column: 2; color: var(--muted); font-size: 0.65rem; }
 
+.floating-support {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 30;
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+.floating-support-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 15px;
+  border: 1px solid rgba(124, 231, 227, 0.3);
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+  color: #06131d;
+  font-weight: 800;
+  box-shadow: 0 14px 30px rgba(5, 12, 20, 0.35);
+}
+.floating-support-menu {
+  display: grid;
+  min-width: 190px;
+  gap: 7px;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
+}
+.floating-support-menu strong { margin-bottom: 3px; font-size: 0.78rem; }
+.floating-support-menu a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 9px;
+  color: var(--text-soft);
+  font-size: 0.75rem;
+}
+.floating-support-menu a:hover { background: rgba(124, 231, 227, 0.08); color: var(--text); }
+
 .status-dot {
   display: inline-block;
   width: 8px;
@@ -1055,6 +1098,8 @@ button[class*="button"] {
   .transcript-editor { min-height: 300px; }
   .history-item { flex-wrap: wrap; }
   .history-item .icon-button { margin-left: auto; }
+  .floating-support { right: 14px; bottom: 86px; }
+  .floating-support-button { padding: 11px 13px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
