@@ -56,7 +56,7 @@ import type {
 import { recordingService } from "./services/recordingService";
 import { storageService } from "./services/storageService";
 import { textToSpeechService } from "./services/textToSpeechService";
-import { aiService, type AIAction } from "./services/aiService";
+import { aiService, hasGoogleTranslateKey, type AIAction } from "./services/aiService";
 
 type RecognitionEvent = {
   results: {
@@ -1460,16 +1460,18 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
   const translateSubtitles = async () => {
     if (!subtitleSource.trim()) return;
     setTranslatingSubtitles(true);
-    setSubtitleStatus("Translating subtitles with Google Translate in sections...");
+    setSubtitleStatus(hasGoogleTranslateKey ? "Translating subtitles with Google Translate in sections..." : "Translating subtitles with local Ollama AI...");
     try {
       const targetCode = subtitleTargetLanguage === "English" ? "en" : subtitleTargetLanguage === "Swahili" ? "sw" : subtitleTargetLanguage === "Portuguese" ? "pt" : subtitleTargetLanguage === "French" ? "fr" : "es";
-      const result = await aiService.translateSubtitlesWithGoogle(subtitleSource, targetCode);
+      const result = hasGoogleTranslateKey
+        ? await aiService.translateSubtitlesWithGoogle(subtitleSource, targetCode)
+        : await aiService.translateSubtitles(subtitleSource, subtitleTargetLanguage);
       setTranslatedSubtitles(result);
       setSubtitleStatus(`Subtitles translated to ${subtitleTargetLanguage}.`);
     } catch (error) {
-      setSubtitleStatus((error as Error).message === "GOOGLE_TRANSLATE_KEY_MISSING"
-        ? "Google Translate needs VITE_GOOGLE_TRANSLATE_API_KEY in the app environment."
-        : "Google subtitle translation failed. Check the API key, billing/project access, and try again.");
+      setSubtitleStatus(hasGoogleTranslateKey
+        ? "Google subtitle translation failed. Check the API key and try again."
+        : "Local translation unavailable. Install Ollama, run ollama serve, and download llama3.2.");
     } finally {
       setTranslatingSubtitles(false);
     }

@@ -3,6 +3,8 @@ const OLLAMA_URL = "http://localhost:11434/api/generate";
 const OLLAMA_MODEL = "llama3.2";
 const GOOGLE_TRANSLATE_KEY = import.meta.env.VITE_GOOGLE_TRANSLATE_API_KEY as string | undefined;
 
+export const hasGoogleTranslateKey = Boolean(GOOGLE_TRANSLATE_KEY);
+
 type SubtitleBlock = { prefix: string; text: string };
 
 const splitSubtitleBlocks = (source: string): SubtitleBlock[] => source
