@@ -906,6 +906,10 @@ button[class*="button"] {
   box-shadow: none;
 }
 .library-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.song-project-grid {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 240px));
+  justify-content: start;
+}
 .library-card {
   display: grid;
   gap: 12px;

@@ -2482,7 +2482,7 @@ function SongStudioPage({
         </section>
       </div>
 
-      <div className="library-grid">
+      <div className="library-grid song-project-grid">
         {songs.length ? (
           songs.map((song) => (
             <article className="library-card" key={song.id}>
