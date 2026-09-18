@@ -1228,6 +1228,15 @@ function downloadBlob(name: string, blob: Blob) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+type VoiceGender = "any" | "female" | "male";
+const voiceGenderMatch = (voice: SpeechSynthesisVoice, preference: VoiceGender) => {
+  if (preference === "any") return true;
+  const name = voice.name.toLowerCase();
+  const femaleNames = /female|woman|zira|samantha|victoria|ava|susan|karen|sara|aria|hazel|linda/;
+  const maleNames = /male|man|david|mark|alex|daniel|george|james|guy|fred|richard|thomas/;
+  return preference === "female" ? femaleNames.test(name) : maleNames.test(name);
+};
+
 function renderSongInstrumental(song: SongProject) {
   const sampleRate = 44100;
   const duration = Math.min(300, Math.max(24, song.targetDuration));
@@ -1283,6 +1292,7 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [voice, setVoice] = useState("");
   const [language, setLanguage] = useState("en-US");
+  const [voiceGender, setVoiceGender] = useState<VoiceGender>("any");
   const [rate, setRate] = useState(1);
   const [pitch, setPitch] = useState(1);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -1292,11 +1302,14 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
   const languageVoices = voices.filter((item) =>
     item.lang.toLowerCase().startsWith(language.toLowerCase().split("-")[0]),
   );
+  const preferredLanguageVoices = languageVoices.filter((item) => voiceGenderMatch(item, voiceGender));
   const selectedVoice =
-    voices.find((item) => item.name === voice) ??
-    languageVoices.find(
+    voices.find((item) => item.name === voice && voiceGenderMatch(item, voiceGender)) ??
+    preferredLanguageVoices.find(
       (item) => item.lang.toLowerCase() === language.toLowerCase(),
     ) ??
+    preferredLanguageVoices[0] ??
+    languageVoices.find((item) => item.lang.toLowerCase() === language.toLowerCase()) ??
     languageVoices[0];
   useEffect(() => {
     const update = () => setVoices(window.speechSynthesis?.getVoices() ?? []);
@@ -1315,7 +1328,8 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
       const requestedLanguage = match?.[1]?.toLowerCase();
       const segmentText = match?.[2] || line;
       const segmentLanguage = languages.find((item) => item.label.toLowerCase() === requestedLanguage || item.code.toLowerCase() === requestedLanguage)?.code ?? language;
-      const segmentVoice = voices.find((item) => item.lang.toLowerCase() === segmentLanguage.toLowerCase()) ?? voices.find((item) => item.lang.toLowerCase().startsWith(segmentLanguage.split("-")[0].toLowerCase()));
+      const segmentVoices = voices.filter((item) => item.lang.toLowerCase().startsWith(segmentLanguage.split("-")[0].toLowerCase()) && voiceGenderMatch(item, voiceGender));
+      const segmentVoice = segmentVoices.find((item) => item.lang.toLowerCase() === segmentLanguage.toLowerCase()) ?? segmentVoices[0];
       return { text: segmentText, voice: segmentVoice ?? selectedVoice, language: segmentLanguage, rate, pitch, volume: 1 };
     });
     textToSpeechService.speakSequence(segments);
@@ -1484,12 +1498,25 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
             ))}
           </select>
         </label>
+        <label>
+          Voice gender preference
+          <select value={voiceGender} onChange={(event) => setVoiceGender(event.target.value as VoiceGender)}>
+            <option value="any">Any available voice</option>
+            <option value="female">Female voice</option>
+            <option value="male">Male voice</option>
+          </select>
+        </label>
         {voices.length > 0 && !languageVoices.length && (
           <div className="notice">
             This device has no installed{" "}
             {languages.find((item) => item.code === language)?.label} voice.
             Install a voice pack or choose another language; Silencio will not
             pretend an English voice is the selected language.
+          </div>
+        )}
+        {voiceGender !== "any" && languageVoices.length > 0 && !preferredLanguageVoices.length && (
+          <div className="notice">
+            This browser does not identify an installed {voiceGender} voice by name for this language. Choose Any available voice or install a clearly named voice pack.
           </div>
         )}
         <Range
