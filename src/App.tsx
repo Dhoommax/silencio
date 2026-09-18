@@ -1217,6 +1217,65 @@ function download(name: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
+function downloadBlob(name: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function renderSongInstrumental(song: SongProject) {
+  const sampleRate = 44100;
+  const duration = Math.min(90, Math.max(24, song.targetDuration));
+  const sampleCount = Math.floor(sampleRate * duration);
+  const samples = new Float32Array(sampleCount);
+  const tempo = song.genre === "Hip-hop" ? 92 : song.genre === "Afrobeat" ? 104 : song.genre === "Electronic" ? 118 : 96;
+  const beatLength = 60 / tempo;
+  const root = song.mood === "uplifting" ? 261.63 : song.mood === "moody" ? 220 : song.mood === "dreamy" ? 246.94 : 233.08;
+  const progression = [1, 6, 4, 5];
+  const notes = [0, 4, 7, 12, 7, 4, 2, 4];
+
+  for (let index = 0; index < sampleCount; index += 1) {
+    const time = index / sampleRate;
+    const beat = Math.floor(time / beatLength);
+    const bar = Math.floor(beat / 4);
+    const chordRoot = root * Math.pow(2, (progression[bar % progression.length] - 1) / 12);
+    const note = chordRoot * Math.pow(2, notes[beat % notes.length] / 12);
+    const envelope = Math.min(1, time * 8) * Math.min(1, (duration - time) * 8);
+    const pad = Math.sin(2 * Math.PI * chordRoot * time) * 0.12 + Math.sin(2 * Math.PI * chordRoot * 1.5 * time) * 0.06;
+    const lead = Math.sin(2 * Math.PI * note * time) * 0.16;
+    const kickPhase = (time % (beatLength * 2)) / (beatLength * 2);
+    const kick = Math.sin(2 * Math.PI * (90 - kickPhase * 55) * time) * Math.max(0, 1 - kickPhase) * 0.18;
+    const snarePhase = ((time + beatLength) % (beatLength * 2)) / (beatLength * 2);
+    const snare = (Math.random() * 2 - 1) * Math.max(0, 1 - snarePhase * 10) * 0.035;
+    samples[index] = Math.max(-1, Math.min(1, (pad + lead + kick + snare) * envelope));
+  }
+
+  const dataLength = samples.length * 2;
+  const buffer = new ArrayBuffer(44 + dataLength);
+  const view = new DataView(buffer);
+  const write = (offset: number, value: string) => {
+    for (let index = 0; index < value.length; index += 1) view.setUint8(offset + index, value.charCodeAt(index));
+  };
+  write(0, "RIFF");
+  view.setUint32(4, 36 + dataLength, true);
+  write(8, "WAVE");
+  write(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  write(36, "data");
+  view.setUint32(40, dataLength, true);
+  samples.forEach((sample, index) => view.setInt16(44 + index * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true));
+  return new Blob([buffer], { type: "audio/wav" });
+}
+
 function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
   const [text, setText] = useState("");
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -2408,6 +2467,12 @@ function SongStudioPage({
                 <span>{song.currentStep}</span>
               </div>
               <p className="muted">{song.idea.slice(0, 120)}{song.idea.length > 120 ? "…" : ""}</p>
+              <button
+                className="secondary-button"
+                onClick={() => downloadBlob(`${song.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "song"}-instrumental.wav`, renderSongInstrumental(song))}
+              >
+                <Download size={15} /> Download instrumental WAV
+              </button>
             </article>
           ))
         ) : (
