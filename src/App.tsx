@@ -2362,8 +2362,11 @@ function AITools({ initialText = "" }: { initialText?: string }) {
     setLoading(true);
     try {
       setResult(await aiService.process(text, action));
-    } catch {
-      setResult("Add some transcript text before processing.");
+    } catch (error) {
+      const code = (error as Error).message;
+      setResult(code === "EMPTY_TRANSCRIPT"
+        ? "Add some transcript text before processing."
+        : "Ollama is not available. Install Ollama, run it locally, and download the llama3.2 model before trying again.");
     } finally {
       setLoading(false);
     }
