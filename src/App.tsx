@@ -1285,6 +1285,10 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
   const [language, setLanguage] = useState("en-US");
   const [rate, setRate] = useState(1);
   const [pitch, setPitch] = useState(1);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [captureStatus, setCaptureStatus] = useState("");
+  const speechRecorder = useRef<MediaRecorder | null>(null);
+  const speechChunks = useRef<Blob[]>([]);
   const languageVoices = voices.filter((item) =>
     item.lang.toLowerCase().startsWith(language.toLowerCase().split("-")[0]),
   );
@@ -1313,6 +1317,44 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
       volume: 1,
       language,
     });
+  };
+  const startSpeechCapture = async () => {
+    if (!selectedVoice || !text.trim()) return;
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      setCaptureStatus("This browser cannot capture tab audio.");
+      return;
+    }
+    try {
+      setCaptureStatus("Choose this tab and enable Share audio in the browser dialog.");
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      if (!stream.getAudioTracks().length) {
+        stream.getTracks().forEach((track) => track.stop());
+        setCaptureStatus("No tab audio was shared. Try again and enable Share audio.");
+        return;
+      }
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
+      const recorder = new MediaRecorder(stream, { mimeType });
+      speechChunks.current = [];
+      recorder.ondataavailable = (event) => event.data.size && speechChunks.current.push(event.data);
+      recorder.onstop = () => {
+        const blob = new Blob(speechChunks.current, { type: recorder.mimeType || "audio/webm" });
+        downloadBlob("silencio-speech.webm", blob);
+        stream.getTracks().forEach((track) => track.stop());
+        setIsCapturing(false);
+        setCaptureStatus("Speech audio downloaded.");
+      };
+      speechRecorder.current = recorder;
+      recorder.start();
+      setIsCapturing(true);
+      setCaptureStatus("Recording speech playback...");
+      window.setTimeout(speak, 250);
+    } catch {
+      setCaptureStatus("Speech capture was cancelled or unavailable.");
+    }
+  };
+  const stopSpeechCapture = () => {
+    textToSpeechService.stop();
+    speechRecorder.current?.stop();
   };
   return (
     <div className="tool-layout">
@@ -1379,12 +1421,20 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
           >
             <BrainCircuit size={15} /> Edit with AI tools
           </button>
+          <button
+            className={isCapturing ? "danger-button" : "secondary-button"}
+            onClick={isCapturing ? stopSpeechCapture : startSpeechCapture}
+            disabled={!selectedVoice || !text.trim()}
+          >
+            {isCapturing ? <><Square size={14} /> Stop and download</> : <><Download size={15} /> Record speech audio</>}
+          </button>
         </div>
         <div className="notice">
-          Browser voices can play locally, but native speech synthesis does not
-          expose the generated audio as a downloadable file. Connect a
-          server-side TTS provider later to enable real audio export.
+          Record speech audio uses free browser tab capture. Choose this tab and
+          enable Share audio when prompted, then SILENCIO downloads the captured
+          speech as a WebM audio file.
         </div>
+        {captureStatus && <div className="notice">{captureStatus}</div>}
       </section>
       <section className="settings-card">
         <div className="block-title">
