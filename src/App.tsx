@@ -1460,13 +1460,16 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
   const translateSubtitles = async () => {
     if (!subtitleSource.trim()) return;
     setTranslatingSubtitles(true);
-    setSubtitleStatus("Translating subtitles with local Ollama AI...");
+    setSubtitleStatus("Translating subtitles with Google Translate in sections...");
     try {
-      const result = await aiService.translateSubtitles(subtitleSource, subtitleTargetLanguage);
+      const targetCode = subtitleTargetLanguage === "English" ? "en" : subtitleTargetLanguage === "Swahili" ? "sw" : subtitleTargetLanguage === "Portuguese" ? "pt" : subtitleTargetLanguage === "French" ? "fr" : "es";
+      const result = await aiService.translateSubtitlesWithGoogle(subtitleSource, targetCode);
       setTranslatedSubtitles(result);
       setSubtitleStatus(`Subtitles translated to ${subtitleTargetLanguage}.`);
-    } catch {
-      setSubtitleStatus("Translation unavailable. Start Ollama and run: ollama pull llama3.2");
+    } catch (error) {
+      setSubtitleStatus((error as Error).message === "GOOGLE_TRANSLATE_KEY_MISSING"
+        ? "Google Translate needs VITE_GOOGLE_TRANSLATE_API_KEY in the app environment."
+        : "Google subtitle translation failed. Check the API key, billing/project access, and try again.");
     } finally {
       setTranslatingSubtitles(false);
     }
