@@ -1228,7 +1228,7 @@ function downloadBlob(name: string, blob: Blob) {
 
 function renderSongInstrumental(song: SongProject) {
   const sampleRate = 44100;
-  const duration = Math.min(90, Math.max(24, song.targetDuration));
+  const duration = Math.min(300, Math.max(24, song.targetDuration));
   const sampleCount = Math.floor(sampleRate * duration);
   const samples = new Float32Array(sampleCount);
   const tempo = song.genre === "Hip-hop" ? 92 : song.genre === "Afrobeat" ? 104 : song.genre === "Electronic" ? 118 : 96;
@@ -2239,6 +2239,8 @@ function SongStudioPage({
   const [draftMood, setDraftMood] = useState("cinematic");
   const [draftLanguage, setDraftLanguage] = useState("English");
   const [draftAudience, setDraftAudience] = useState("independent listeners");
+  const [draftDuration, setDraftDuration] = useState(120);
+  const [draftSpokenWords, setDraftSpokenWords] = useState("");
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
   const [draftIdea, setDraftIdea] = useState(
     "A late-night introspective anthem with warm vocals, floating chords, and a spacious chorus.",
@@ -2249,7 +2251,8 @@ function SongStudioPage({
     const artist = draftArtist.trim() || "Independent artist";
     const idea = draftIdea.trim() || "A story waiting to be sung.";
     const hook = `${title}, we are still becoming`; 
-    const generatedLyrics = `[Intro]\n${idea}\n\n[Verse 1]\nI carried the quiet through the neon glow\nFound a little truth in the aftershow\nEvery open door had a different name\nBut the pulse in my chest stayed the same\n\n[Pre-Chorus]\nIf the night gets heavy, let it roll\nThere is a bright line running through the soul\n\n[Chorus]\n${hook}\nTurn the dark into a place we know\n${hook}\nLet the honest rhythm take control\n\n[Verse 2]\nWe were making maps from a borrowed flame\nLearning how to lose without losing our aim\nNow the room is wide and the sound is clear\nI can hear the future getting near\n\n[Bridge]\nNo perfect words, no borrowed view\nJust one live wire leading through\n\n[Outro]\n${hook}`;
+    const spokenWords = draftSpokenWords.trim() || "Speak your truth slowly; let the room make space for it.";
+    const generatedLyrics = `[Spoken Word]\n${spokenWords}\n\n[Verse 1]\nI carried the quiet through the neon glow\nFound a little truth in the aftershow\nEvery open door had a different name\nBut the pulse in my chest stayed the same\n\n[Pre-Chorus]\nIf the night gets heavy, let it roll\nThere is a bright line running through the soul\n\n[Chorus]\n${hook}\nTurn the dark into a place we know\n${hook}\nLet the honest rhythm take control\n\n[Verse 2]\nWe were making maps from a borrowed flame\nLearning how to lose without losing our aim\nNow the room is wide and the sound is clear\nI can hear the future getting near\n\n[Bridge]\n${spokenWords}\n\n[Outro]\n${hook}`;
     const languageCode = draftLanguage === "English" ? "en-US" : draftLanguage === "Swahili" ? "sw-TZ" : "pt-PT";
     const next: SongProject = {
       id: uid(),
@@ -2261,7 +2264,7 @@ function SongStudioPage({
       description: `${draftMood} ${draftGenre.toLowerCase()} song for ${draftAudience}.`,
       lyrics: generatedLyrics,
       idea,
-      targetDuration: 180,
+      targetDuration: draftDuration,
       audience: draftAudience,
       songStructure: [
         {
@@ -2425,11 +2428,31 @@ function SongStudioPage({
             <input value={draftAudience} onChange={(event) => setDraftAudience(event.target.value)} />
           </label>
           <label>
+            Song length
+            <select value={draftDuration} onChange={(event) => setDraftDuration(Number(event.target.value))}>
+              <option value={30}>30 seconds</option>
+              <option value={60}>1 minute</option>
+              <option value={120}>2 minutes</option>
+              <option value={180}>3 minutes</option>
+              <option value={240}>4 minutes</option>
+              <option value={300}>5 minutes</option>
+            </select>
+          </label>
+          <label>
             Creative idea
             <textarea
               value={draftIdea}
               onChange={(event) => setDraftIdea(event.target.value)}
               rows={5}
+            />
+          </label>
+          <label>
+            Words to speak or sing
+            <textarea
+              value={draftSpokenWords}
+              onChange={(event) => setDraftSpokenWords(event.target.value)}
+              placeholder="Enter the exact words you want featured in the spoken-word section..."
+              rows={4}
             />
           </label>
           <button className="primary-button" onClick={createSong}>Generate song draft</button>
