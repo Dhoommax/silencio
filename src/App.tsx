@@ -45,6 +45,8 @@ import type {
   Recording,
   RecordingState,
   SongProject,
+  SongSection,
+  SongTrack,
   Transcript,
   UserSettings,
 } from "./types";
@@ -2242,6 +2244,15 @@ function SongStudioPage({
   const [draftDuration, setDraftDuration] = useState(120);
   const [draftSpokenWords, setDraftSpokenWords] = useState("");
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
+  const [selectedSongId, setSelectedSongId] = useState<string | null>(null);
+  const [editorLyrics, setEditorLyrics] = useState("");
+  const [editorNotes, setEditorNotes] = useState("");
+  const [editorSubtitles, setEditorSubtitles] = useState("");
+  const [editorSections, setEditorSections] = useState<SongSection[]>([]);
+  const [editorTracks, setEditorTracks] = useState<SongTrack[]>([]);
+  const [isVocalRecording, setIsVocalRecording] = useState(false);
+  const vocalRecorder = useRef<MediaRecorder | null>(null);
+  const vocalChunks = useRef<Blob[]>([]);
   const [draftIdea, setDraftIdea] = useState(
     "A late-night introspective anthem with warm vocals, floating chords, and a spacious chorus.",
   );
@@ -2366,6 +2377,69 @@ function SongStudioPage({
     if (song) recordActivity("song", `Deleted song project: ${song.title}`);
   };
 
+  const openSong = (song: SongProject) => {
+    setSelectedSongId(song.id);
+    setEditorLyrics(song.lyrics);
+    setEditorNotes(song.notes);
+    setEditorSubtitles(song.subtitles);
+    setEditorSections(song.songStructure);
+    setEditorTracks(song.tracks);
+  };
+
+  const selectedSong = songs.find((song) => song.id === selectedSongId);
+  const saveSongEditor = () => {
+    if (!selectedSong) return;
+    const updated = {
+      ...selectedSong,
+      lyrics: editorLyrics,
+      notes: editorNotes,
+      subtitles: editorSubtitles,
+      songStructure: editorSections,
+      tracks: editorTracks,
+      updatedAt: new Date().toISOString(),
+      status: "in-progress" as const,
+      currentStep: "edit" as const,
+    };
+    setSongs((current) => current.map((song) => song.id === updated.id ? updated : song));
+    storageService.saveSongProject(updated).catch(() => undefined);
+    recordActivity("song", `Updated song project: ${updated.title}`);
+  };
+
+  const importMusic = (file: File) => {
+    if (!selectedSong) return;
+    const url = URL.createObjectURL(file);
+    setEditorTracks((current) => [
+      ...current,
+      { id: uid(), name: file.name, type: "background-music", volume: 75, pan: 0, muted: false, solo: false, url, fileName: file.name, loop: false, fadeIn: 0, fadeOut: 0 },
+    ]);
+  };
+
+  const startVocalRecording = async () => {
+    if (!selectedSong) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      vocalChunks.current = [];
+      recorder.ondataavailable = (event) => event.data.size && vocalChunks.current.push(event.data);
+      recorder.onstop = () => {
+        const blob = new Blob(vocalChunks.current, { type: recorder.mimeType || "audio/webm" });
+        const url = URL.createObjectURL(blob);
+        setEditorTracks((current) => [...current, { id: uid(), name: "Vocal take", type: "lead-vocal", volume: 100, pan: 0, muted: false, solo: false, url, fileName: "vocal-take.webm", loop: false, fadeIn: 0, fadeOut: 0 }]);
+        stream.getTracks().forEach((track) => track.stop());
+      };
+      vocalRecorder.current = recorder;
+      recorder.start();
+      setIsVocalRecording(true);
+    } catch {
+      recordActivity("song", "Microphone access was unavailable for the vocal take.");
+    }
+  };
+
+  const stopVocalRecording = () => {
+    vocalRecorder.current?.stop();
+    setIsVocalRecording(false);
+  };
+
   const previewSong = (song: SongProject) => {
     const existing = previewUrls[song.id];
     if (existing) return;
@@ -2482,6 +2556,69 @@ function SongStudioPage({
         </section>
       </div>
 
+      {selectedSong && (
+        <section className="song-editor settings-card">
+          <div className="library-toolbar">
+            <div>
+              <span className="eyebrow">Song workspace</span>
+              <h3>{selectedSong.title}</h3>
+            </div>
+            <div className="tool-actions">
+              <button className="secondary-button" onClick={() => setSelectedSongId(null)}>Close</button>
+              <button className="primary-button" onClick={saveSongEditor}><Check size={15} /> Save project</button>
+            </div>
+          </div>
+          <div className="song-editor-grid">
+            <label>
+              Lyrics and spoken words
+              <textarea className="transcript-editor" value={editorLyrics} onChange={(event) => setEditorLyrics(event.target.value)} />
+            </label>
+            <label>
+              Subtitles (SRT or VTT)
+              <textarea className="transcript-editor" value={editorSubtitles} onChange={(event) => setEditorSubtitles(event.target.value)} />
+            </label>
+            <label>
+              Notes and production direction
+              <textarea className="transcript-editor" value={editorNotes} onChange={(event) => setEditorNotes(event.target.value)} />
+            </label>
+          </div>
+          <div className="song-section-list">
+            <div className="block-title"><h3>Structure timeline</h3><span className="support-badge supported">{editorSections.length} sections</span></div>
+            {editorSections.map((section, index) => (
+              <div className="song-section-row" key={section.id}>
+                <span className="file-icon"><Waves size={15} /></span>
+                <input value={section.name} onChange={(event) => setEditorSections((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} />
+                <input type="number" min="1" value={section.duration} aria-label={`${section.name} duration in seconds`} onChange={(event) => setEditorSections((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, duration: Number(event.target.value), end: item.start + Number(event.target.value) } : item))} />
+                <span className="muted">sec</span>
+              </div>
+            ))}
+          </div>
+          <div className="song-track-list">
+            <div className="block-title"><h3>Vocals and music</h3><span className="support-badge">Local files only</span></div>
+            <div className="tool-actions">
+              <button className={isVocalRecording ? "danger-button" : "secondary-button"} onClick={isVocalRecording ? stopVocalRecording : startVocalRecording}>
+                {isVocalRecording ? <><Square size={15} /> Stop vocal take</> : <><Mic size={15} /> Record vocal take</>}
+              </button>
+              <label className="secondary-button">
+                <FileAudio size={15} /> Import music
+                <input type="file" accept="audio/*" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) importMusic(file); }} />
+              </label>
+            </div>
+            {editorTracks.map((track) => (
+              <div className="song-track-row" key={track.id}>
+                <strong>{track.name}</strong>
+                <span className="muted">{track.type}</span>
+                <Range label="Volume" value={track.volume / 100} min={0} max={1} step={0.05} setValue={(value) => setEditorTracks((current) => current.map((item) => item.id === track.id ? { ...item, volume: Math.round(value * 100) } : item))} />
+                {track.url && <audio controls preload="metadata" src={track.url} aria-label={`Play ${track.name}`} />}
+              </div>
+            ))}
+          </div>
+          <button className="secondary-button" onClick={() => download(`${selectedSong.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "song"}-project.json`, JSON.stringify({ ...selectedSong, lyrics: editorLyrics, notes: editorNotes, subtitles: editorSubtitles, songStructure: editorSections, tracks: editorTracks }, null, 2))}>
+            <Download size={15} /> Export project JSON
+          </button>
+        </section>
+      )}
+
       <div className="library-grid song-project-grid">
         {songs.length ? (
           songs.map((song) => (
@@ -2503,6 +2640,7 @@ function SongStudioPage({
                 <span>{song.status}</span>
                 <span>{song.currentStep}</span>
               </div>
+              <button className="secondary-button" onClick={() => openSong(song)}><FileText size={15} /> Open editor</button>
               <p className="muted">{song.idea.slice(0, 120)}{song.idea.length > 120 ? "…" : ""}</p>
               <button className="secondary-button" onClick={() => previewSong(song)}>
                 <Play size={15} /> {previewUrls[song.id] ? "Ready to play" : "Generate preview"}
