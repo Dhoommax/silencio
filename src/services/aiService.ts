@@ -35,4 +35,25 @@ export const aiService = {
 		if (!data.response?.trim()) throw new Error("OLLAMA_EMPTY_RESPONSE");
 		return data.response.trim();
 	},
+	async translateSubtitles(source: string, targetLanguage: string) {
+		if (!source.trim()) throw new Error("EMPTY_TRANSCRIPT");
+		let response: Response;
+		try {
+			response = await fetch(OLLAMA_URL, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					model: OLLAMA_MODEL,
+					prompt: `Translate only the spoken subtitle lines into ${targetLanguage}. Preserve every subtitle number, timestamp, line break, and WEBVTT header exactly. Do not add explanations.\n\n${source}`,
+					stream: false,
+				}),
+			});
+		} catch {
+			throw new Error("OLLAMA_UNAVAILABLE");
+		}
+		if (!response.ok) throw new Error("OLLAMA_ERROR");
+		const data = (await response.json()) as { response?: string };
+		if (!data.response?.trim()) throw new Error("OLLAMA_EMPTY_RESPONSE");
+		return data.response.trim();
+	},
 };

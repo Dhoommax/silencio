@@ -1360,6 +1360,9 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
   const [pitch, setPitch] = useState(1);
   const [subtitleSource, setSubtitleSource] = useState("");
   const [subtitleStatus, setSubtitleStatus] = useState("");
+  const [subtitleTargetLanguage, setSubtitleTargetLanguage] = useState("Swahili");
+  const [translatedSubtitles, setTranslatedSubtitles] = useState("");
+  const [translatingSubtitles, setTranslatingSubtitles] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureStatus, setCaptureStatus] = useState("");
   const speechRecorder = useRef<MediaRecorder | null>(null);
@@ -1453,6 +1456,21 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
     });
     textToSpeechService.speakSequence(segments);
     setSubtitleStatus(`${segments.length} subtitle lines queued for speech.`);
+  };
+  const translateSubtitles = async () => {
+    if (!subtitleSource.trim()) return;
+    setTranslatingSubtitles(true);
+    setSubtitleStatus("Translating subtitles with local Ollama AI...");
+    try {
+      const result = await aiService.translateSubtitles(subtitleSource, subtitleTargetLanguage);
+      setTranslatedSubtitles(result);
+      setSubtitleSource(result);
+      setSubtitleStatus(`Subtitles translated to ${subtitleTargetLanguage}.`);
+    } catch {
+      setSubtitleStatus("Translation unavailable. Start Ollama and run: ollama pull llama3.2");
+    } finally {
+      setTranslatingSubtitles(false);
+    }
   };
   return (
     <div className="tool-layout">
@@ -1566,11 +1584,22 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
             <button className="primary-button" onClick={speakSubtitles} disabled={!subtitleSource.trim()}>
               <Play size={15} /> Speak subtitles
             </button>
+            <select value={subtitleTargetLanguage} onChange={(event) => setSubtitleTargetLanguage(event.target.value)} aria-label="Subtitle target language">
+              <option>English</option>
+              <option>Swahili</option>
+              <option>Portuguese</option>
+              <option>French</option>
+              <option>Spanish</option>
+            </select>
+            <button className="secondary-button" onClick={translateSubtitles} disabled={!subtitleSource.trim() || translatingSubtitles}>
+              <Languages size={15} /> {translatingSubtitles ? "Translating..." : "Translate subtitles"}
+            </button>
             <button className="secondary-button" onClick={textToSpeechService.stop}>
               <Square size={14} /> Stop
             </button>
           </div>
           {subtitleStatus && <div className="notice">{subtitleStatus}</div>}
+          {translatedSubtitles && <div className="notice">Translated subtitles are loaded above and ready to speak or export.</div>}
         </div>
       </section>
       <section className="settings-card">
