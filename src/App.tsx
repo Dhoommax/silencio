@@ -2176,30 +2176,39 @@ function SongStudioPage({
 }) {
   const [draftTitle, setDraftTitle] = useState("My song");
   const [draftArtist, setDraftArtist] = useState("Independent artist");
+  const [draftGenre, setDraftGenre] = useState("Alternative");
   const [draftMood, setDraftMood] = useState("cinematic");
+  const [draftLanguage, setDraftLanguage] = useState("English");
+  const [draftAudience, setDraftAudience] = useState("independent listeners");
   const [draftIdea, setDraftIdea] = useState(
     "A late-night introspective anthem with warm vocals, floating chords, and a spacious chorus.",
   );
 
   const createSong = () => {
+    const title = draftTitle.trim() || `Song ${songs.length + 1}`;
+    const artist = draftArtist.trim() || "Independent artist";
+    const idea = draftIdea.trim() || "A story waiting to be sung.";
+    const hook = `${title}, we are still becoming`; 
+    const generatedLyrics = `[Intro]\n${idea}\n\n[Verse 1]\nI carried the quiet through the neon glow\nFound a little truth in the aftershow\nEvery open door had a different name\nBut the pulse in my chest stayed the same\n\n[Pre-Chorus]\nIf the night gets heavy, let it roll\nThere is a bright line running through the soul\n\n[Chorus]\n${hook}\nTurn the dark into a place we know\n${hook}\nLet the honest rhythm take control\n\n[Verse 2]\nWe were making maps from a borrowed flame\nLearning how to lose without losing our aim\nNow the room is wide and the sound is clear\nI can hear the future getting near\n\n[Bridge]\nNo perfect words, no borrowed view\nJust one live wire leading through\n\n[Outro]\n${hook}`;
+    const languageCode = draftLanguage === "English" ? "en-US" : draftLanguage === "Swahili" ? "sw-TZ" : "pt-PT";
     const next: SongProject = {
       id: uid(),
-      title: draftTitle.trim() || `Song ${songs.length + 1}`,
-      artistName: draftArtist.trim() || "Independent artist",
-      genre: "Alternative",
+      title,
+      artistName: artist,
+      genre: draftGenre,
       mood: draftMood,
-      language: "en-US",
-      description: "Local song brief created in SILENCIO.",
-      lyrics: "[Verse]\nWrite your lyrics here...\n\n[Chorus]\nAdd your hook here...",
-      idea: draftIdea.trim() || "Sketch your creative concept here.",
+      language: languageCode,
+      description: `${draftMood} ${draftGenre.toLowerCase()} song for ${draftAudience}.`,
+      lyrics: generatedLyrics,
+      idea,
       targetDuration: 180,
-      audience: "Listeners who connect with honest, emotional storytelling",
+      audience: draftAudience,
       songStructure: [
         {
           id: uid(),
           name: "Intro",
           type: "intro",
-          text: "Set the atmosphere.",
+          text: idea,
           start: 0,
           end: 8,
           duration: 8,
@@ -2210,7 +2219,7 @@ function SongStudioPage({
           id: uid(),
           name: "Verse 1",
           type: "verse",
-          text: "Tell the story.",
+          text: "Build the story with specific images and a clear emotional turn.",
           start: 8,
           end: 32,
           duration: 24,
@@ -2221,7 +2230,7 @@ function SongStudioPage({
           id: uid(),
           name: "Chorus",
           type: "chorus",
-          text: "Deliver the emotional hook.",
+          text: hook,
           start: 32,
           end: 56,
           duration: 24,
@@ -2258,22 +2267,22 @@ function SongStudioPage({
       takes: [],
       subtitles: "WEBVTT\n\n00:00.000 --> 00:04.000\nIntro hook",
       metadata: {
-        title: draftTitle.trim() || `Song ${songs.length + 1}`,
-        artist: draftArtist.trim() || "Independent artist",
+        title,
+        artist,
         album: "",
-        genre: "Alternative",
-        language: "en-US",
+        genre: draftGenre,
+        language: languageCode,
         year: new Date().getFullYear().toString(),
-        description: "Local draft created in Song Studio.",
+        description: `${draftMood} song generated locally from the creative brief.`,
         composer: "",
         songwriter: "",
       },
-      notes: "Creative notes and production reminders live here.",
+      notes: `Generated from the concept: ${idea}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       status: "draft",
       currentStep: "idea",
-      versionName: "Draft v1",
+      versionName: "Generated draft v1",
     };
 
     setSongs((current) => [next, ...current]);
@@ -2310,6 +2319,17 @@ function SongStudioPage({
             <input value={draftArtist} onChange={(event) => setDraftArtist(event.target.value)} />
           </label>
           <label>
+            Genre
+            <select value={draftGenre} onChange={(event) => setDraftGenre(event.target.value)}>
+              <option>Alternative</option>
+              <option>Afrobeat</option>
+              <option>Pop</option>
+              <option>Hip-hop</option>
+              <option>R&B</option>
+              <option>Electronic</option>
+            </select>
+          </label>
+          <label>
             Mood
             <select value={draftMood} onChange={(event) => setDraftMood(event.target.value)}>
               <option value="cinematic">Cinematic</option>
@@ -2320,6 +2340,18 @@ function SongStudioPage({
             </select>
           </label>
           <label>
+            Language
+            <select value={draftLanguage} onChange={(event) => setDraftLanguage(event.target.value)}>
+              <option>English</option>
+              <option>Swahili</option>
+              <option>Portuguese</option>
+            </select>
+          </label>
+          <label>
+            Audience
+            <input value={draftAudience} onChange={(event) => setDraftAudience(event.target.value)} />
+          </label>
+          <label>
             Creative idea
             <textarea
               value={draftIdea}
@@ -2327,7 +2359,7 @@ function SongStudioPage({
               rows={5}
             />
           </label>
-          <button className="primary-button" onClick={createSong}>Create song brief</button>
+          <button className="primary-button" onClick={createSong}>Generate song draft</button>
         </section>
 
         <section className="settings-card">
@@ -2349,7 +2381,7 @@ function SongStudioPage({
             ))}
           </div>
           <div className="notice">
-            This module organizes local recordings, lyrics, structure, tracks, and export details without pretending to generate real AI music or deepfake voices.
+            This generates an editable local song draft from your brief. It does not generate audio, imitate a real singer, or claim to be an AI music provider.
           </div>
         </section>
       </div>
