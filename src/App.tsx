@@ -1309,14 +1309,16 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
     setVoice("");
   }, [language]);
   const speak = () => {
-    if (!selectedVoice) return;
-    textToSpeechService.speak(text, {
-      voice: selectedVoice,
-      rate,
-      pitch,
-      volume: 1,
-      language,
+    if (!selectedVoice || !text.trim()) return;
+    const segments = text.split(/\n+/).map((line) => {
+      const match = line.match(/^\s*\[([^\]]+)\]\s*(.*)$/);
+      const requestedLanguage = match?.[1]?.toLowerCase();
+      const segmentText = match?.[2] || line;
+      const segmentLanguage = languages.find((item) => item.label.toLowerCase() === requestedLanguage || item.code.toLowerCase() === requestedLanguage)?.code ?? language;
+      const segmentVoice = voices.find((item) => item.lang.toLowerCase() === segmentLanguage.toLowerCase()) ?? voices.find((item) => item.lang.toLowerCase().startsWith(segmentLanguage.split("-")[0].toLowerCase()));
+      return { text: segmentText, voice: segmentVoice ?? selectedVoice, language: segmentLanguage, rate, pitch, volume: 1 };
     });
+    textToSpeechService.speakSequence(segments);
   };
   const startSpeechCapture = async () => {
     if (!selectedVoice || !text.trim()) return;
@@ -1433,6 +1435,9 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
           Record speech audio uses free browser tab capture. Choose this tab and
           enable Share audio when prompted, then SILENCIO downloads the captured
           speech as a WebM audio file.
+        </div>
+        <div className="notice">
+          Mixed languages work line by line. Use tags such as <strong>[English] Hello</strong>, <strong>[Swahili] Habari</strong>, or <strong>[Portuguese] Ola</strong> to select the matching installed voice.
         </div>
         {captureStatus && <div className="notice">{captureStatus}</div>}
       </section>
