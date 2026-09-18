@@ -1464,7 +1464,6 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
     try {
       const result = await aiService.translateSubtitles(subtitleSource, subtitleTargetLanguage);
       setTranslatedSubtitles(result);
-      setSubtitleSource(result);
       setSubtitleStatus(`Subtitles translated to ${subtitleTargetLanguage}.`);
     } catch {
       setSubtitleStatus("Translation unavailable. Start Ollama and run: ollama pull llama3.2");
@@ -1569,6 +1568,11 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
             placeholder="Paste SRT or VTT subtitles here..."
           />
           <div className="tool-actions">
+            <button className="secondary-button" onClick={() => download("silencio-original-subtitles.srt", subtitleSource)} disabled={!subtitleSource.trim()}>
+              <Download size={15} /> Download original
+            </button>
+          </div>
+          <div className="tool-actions">
             <label className="secondary-button">
               <FileText size={15} /> Import SRT/VTT
               <input
@@ -1599,7 +1603,22 @@ function TTS({ onEditWithAI }: { onEditWithAI: (text: string) => void }) {
             </button>
           </div>
           {subtitleStatus && <div className="notice">{subtitleStatus}</div>}
-          {translatedSubtitles && <div className="notice">Translated subtitles are loaded above and ready to speak or export.</div>}
+          {translatedSubtitles && (
+            <>
+              <label>
+                Editable translated subtitles
+                <textarea className="large-input" value={translatedSubtitles} onChange={(event) => setTranslatedSubtitles(event.target.value)} />
+              </label>
+              <div className="tool-actions">
+                <button className="primary-button" onClick={() => download(`silencio-subtitles-${subtitleTargetLanguage.toLowerCase()}.srt`, translatedSubtitles)}>
+                  <Download size={15} /> Download translated SRT
+                </button>
+                <button className="secondary-button" onClick={() => { setSubtitleSource(translatedSubtitles); setSubtitleStatus("Translated subtitles loaded for speech."); }}>
+                  <FileText size={15} /> Use translated text for speech
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </section>
       <section className="settings-card">
