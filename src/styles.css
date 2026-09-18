@@ -122,7 +122,24 @@ textarea { resize: vertical; min-height: 170px; }
 }
 
 .sidebar-label { padding: 0 12px 10px; }
-.sidebar nav { display: grid; gap: 6px; }
+.sidebar nav {
+  display: grid;
+  gap: 6px;
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 4px 12px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(124, 231, 227, 0.45) transparent;
+}
+.sidebar nav::-webkit-scrollbar { width: 6px; }
+.sidebar nav::-webkit-scrollbar-track { background: transparent; }
+.sidebar nav::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(124, 231, 227, 0.45);
+}
+.sidebar nav::-webkit-scrollbar-thumb:hover { background: var(--primary); }
 
 .nav-item {
   display: flex;
