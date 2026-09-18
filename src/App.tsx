@@ -24,9 +24,12 @@ import {
   Home as HomeIcon,
   Languages,
   Menu,
+  Mail,
+  MessageCircle,
   Mic,
   MoreHorizontal,
   Pause,
+  Phone,
   Play,
   RotateCcw,
   Search,
@@ -296,6 +299,7 @@ function Sidebar({
     ["translation", "Translation", Languages],
     ["settings", "Settings", Settings],
   ];
+  const [showSupport, setShowSupport] = useState(false);
   return (
     <aside className="sidebar">
       <div className="brand" onClick={() => setPage("home")}>
@@ -322,6 +326,25 @@ function Sidebar({
         <div className="privacy-pill">
           <span className="status-dot green" />
           Local-first storage
+        </div>
+        <div className="support-menu-wrap">
+          <button className="support-contact-button" onClick={() => setShowSupport((current) => !current)}>
+            <MessageCircle size={16} />
+            <span>Contact customer support</span>
+          </button>
+          {showSupport && (
+            <div className="support-menu">
+              <a href="https://wa.me/255767828430" target="_blank" rel="noreferrer">
+                <MessageCircle size={16} /> WhatsApp <small>+255 767 828 430</small>
+              </a>
+              <a href="mailto:helgadhoom@gmail.com">
+                <Mail size={16} /> Email <small>helgadhoom@gmail.com</small>
+              </a>
+              <a href="tel:0762385627">
+                <Phone size={16} /> Normal call <small>0762 385 627</small>
+              </a>
+            </div>
+          )}
         </div>
         <button className="profile">
           <span className="avatar">S</span>
