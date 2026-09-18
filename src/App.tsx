@@ -2239,6 +2239,7 @@ function SongStudioPage({
   const [draftMood, setDraftMood] = useState("cinematic");
   const [draftLanguage, setDraftLanguage] = useState("English");
   const [draftAudience, setDraftAudience] = useState("independent listeners");
+  const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
   const [draftIdea, setDraftIdea] = useState(
     "A late-night introspective anthem with warm vocals, floating chords, and a spacious chorus.",
   );
@@ -2351,9 +2352,22 @@ function SongStudioPage({
 
   const removeSong = (id: string) => {
     const song = songs.find((item) => item.id === id);
+    if (previewUrls[id]) URL.revokeObjectURL(previewUrls[id]);
+    setPreviewUrls((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
     setSongs((current) => current.filter((item) => item.id !== id));
     storageService.deleteSongProject(id).catch(() => undefined);
     if (song) recordActivity("song", `Deleted song project: ${song.title}`);
+  };
+
+  const previewSong = (song: SongProject) => {
+    const existing = previewUrls[song.id];
+    if (existing) return;
+    const url = URL.createObjectURL(renderSongInstrumental(song));
+    setPreviewUrls((current) => ({ ...current, [song.id]: url }));
   };
 
   return (
@@ -2467,6 +2481,12 @@ function SongStudioPage({
                 <span>{song.currentStep}</span>
               </div>
               <p className="muted">{song.idea.slice(0, 120)}{song.idea.length > 120 ? "…" : ""}</p>
+              <button className="secondary-button" onClick={() => previewSong(song)}>
+                <Play size={15} /> {previewUrls[song.id] ? "Ready to play" : "Generate preview"}
+              </button>
+              {previewUrls[song.id] && (
+                <audio className="song-preview" controls preload="metadata" src={previewUrls[song.id]} aria-label={`Play ${song.title}`} />
+              )}
               <button
                 className="secondary-button"
                 onClick={() => downloadBlob(`${song.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "song"}-instrumental.wav`, renderSongInstrumental(song))}
